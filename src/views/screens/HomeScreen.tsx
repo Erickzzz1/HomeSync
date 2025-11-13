@@ -15,11 +15,19 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { logout } from '../../store/slices/authSlice';
 import AuthRepository from '../../repositories/AuthRepository';
+import { AppStackParamList } from '../../navigation/AppNavigator';
 
-const HomeScreen: React.FC = () => {
+type HomeScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Home'>;
+
+interface Props {
+  navigation: HomeScreenNavigationProp;
+}
+
+const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -114,12 +122,21 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.featureTitle}>✅ Implementado:</Text>
           <Text style={styles.featureItem}>• Arquitectura MVVM</Text>
           <Text style={styles.featureItem}>• Singleton Pattern (Firebase)</Text>
-          <Text style={styles.featureItem}>• Repository Pattern (Auth)</Text>
+          <Text style={styles.featureItem}>• Repository Pattern (Auth + Tasks)</Text>
+          <Text style={styles.featureItem}>• CRUD Completo de Tareas (Firestore)</Text>
           <Text style={styles.featureItem}>• Redux Toolkit</Text>
           <Text style={styles.featureItem}>• React Navigation</Text>
           <Text style={styles.featureItem}>• Validaciones de seguridad</Text>
           <Text style={styles.featureItem}>• Variables de entorno (.env)</Text>
         </View>
+
+        {/* Botón de Ir a Tareas */}
+        <TouchableOpacity
+          style={styles.tasksButton}
+          onPress={() => navigation.navigate('TaskList')}
+        >
+          <Text style={styles.tasksButtonText}>📝 Ver Mis Tareas</Text>
+        </TouchableOpacity>
 
         {/* Botón de Cerrar Sesión */}
         <TouchableOpacity
@@ -225,6 +242,18 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 4,
     lineHeight: 20
+  },
+  tasksButton: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  tasksButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold'
   },
   logoutButton: {
     backgroundColor: '#FF3B30',
