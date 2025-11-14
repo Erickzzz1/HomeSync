@@ -259,6 +259,15 @@ class AuthRepository implements IAuthRepository {
       case 'auth/wrong-password':
         errorMessage = 'Contraseña incorrecta';
         break;
+      case 'auth/invalid-credential':
+        // Firebase 9+ usa este código para credenciales inválidas
+        // Puede ser email o password incorrecto, pero por seguridad no especificamos cuál
+        errorMessage = 'Contraseña incorrecta';
+        break;
+      case 'auth/invalid-login-credentials':
+        // Código alternativo en algunas versiones
+        errorMessage = 'Contraseña incorrecta';
+        break;
       case 'auth/too-many-requests':
         errorMessage = 'Demasiados intentos fallidos. Intenta más tarde';
         break;

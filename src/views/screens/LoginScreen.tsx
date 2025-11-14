@@ -64,8 +64,45 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         dispatch(setUser(result.user));
         Alert.alert('¡Bienvenido!', 'Has iniciado sesión correctamente');
       } else {
-        dispatch(setError(result.error || 'Error al iniciar sesión'));
-        Alert.alert('Error', result.error || 'No se pudo iniciar sesión');
+        const errorMessage = result.error || 'Error al iniciar sesión';
+        dispatch(setError(errorMessage));
+        
+        // Debug: ver qué errorCode está llegando
+        console.log('Error code recibido:', result.errorCode);
+        console.log('Error message:', errorMessage);
+        
+        // Mostrar error en el campo correspondiente
+        if (result.errorCode === 'auth/wrong-password' || 
+            result.errorCode === 'auth/invalid-credential' ||
+            result.errorCode === 'auth/invalid-login-credentials' ||
+            errorMessage.toLowerCase().includes('contraseña') ||
+            errorMessage.toLowerCase().includes('password')) {
+          // Error de contraseña incorrecta - mostrar en campo de contraseña
+          setErrors({ password: 'Contraseña incorrecta' });
+          // También mostrar en Alert para asegurar que se vea
+          if (Platform.OS === 'web') {
+            alert('Contraseña incorrecta');
+          } else {
+            Alert.alert('Error', 'Contraseña incorrecta');
+          }
+        } else if (result.errorCode === 'auth/user-not-found' ||
+                   errorMessage.toLowerCase().includes('no existe') ||
+                   errorMessage.toLowerCase().includes('not found')) {
+          // Error de email no encontrado - mostrar en campo de email
+          setErrors({ email: 'No existe una cuenta con este correo electrónico' });
+        } else {
+          // Otros errores - mostrar en Alert y también en campo de contraseña si parece ser de contraseña
+          if (Platform.OS === 'web') {
+            alert(errorMessage);
+          } else {
+            Alert.alert('Error', errorMessage);
+          }
+          // Si el mensaje menciona contraseña, también mostrarlo en el campo
+          if (errorMessage.toLowerCase().includes('contraseña') || 
+              errorMessage.toLowerCase().includes('password')) {
+            setErrors({ password: errorMessage });
+          }
+        }
       }
     } catch (error) {
       console.error('Error inesperado:', error);

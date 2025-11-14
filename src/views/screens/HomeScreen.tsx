@@ -112,23 +112,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Card de Información */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>🏠 HomeSync</Text>
-          <Text style={styles.infoText}>
-            Asistente Digital del Hogar - Segundo Parcial
-          </Text>
-          <View style={styles.divider} />
-          <Text style={styles.featureTitle}>✅ Implementado:</Text>
-          <Text style={styles.featureItem}>• Arquitectura MVVM</Text>
-          <Text style={styles.featureItem}>• Singleton Pattern (Firebase)</Text>
-          <Text style={styles.featureItem}>• Repository Pattern (Auth + Tasks)</Text>
-          <Text style={styles.featureItem}>• CRUD Completo de Tareas (Firestore)</Text>
-          <Text style={styles.featureItem}>• Redux Toolkit</Text>
-          <Text style={styles.featureItem}>• React Navigation</Text>
-          <Text style={styles.featureItem}>• Validaciones de seguridad</Text>
-          <Text style={styles.featureItem}>• Variables de entorno (.env)</Text>
-        </View>
+      
 
         {/* Botón de Ir a Tareas */}
         <TouchableOpacity

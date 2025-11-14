@@ -93,22 +93,22 @@ class FirebaseService {
         this.auth.setPersistence(browserLocalPersistence).catch((error) => {
           console.warn('No se pudo configurar persistencia en web:', error);
         });
-        console.log('🌐 Firebase inicializado para WEB');
+        console.log('Firebase inicializado para WEB');
       } else {
         // Para móvil: usar initializeAuth con AsyncStorage
         this.auth = initializeAuth(this.app, {
           persistence: getReactNativePersistence(AsyncStorage)
         });
-        console.log('📱 Firebase inicializado para MÓVIL');
+        console.log('Firebase inicializado para MÓVIL');
       }
 
       // Inicializar Firestore
       this.firestore = getFirestore(this.app);
 
       this.isInitialized = true;
-      console.log('✅ Firebase inicializado correctamente');
+      console.log('Firebase inicializado correctamente');
     } catch (error) {
-      console.error('❌ Error al inicializar Firebase:', error);
+      console.error('Error al inicializar Firebase:', error);
       throw new Error('No se pudo inicializar Firebase. Verifica la configuración.');
     }
   }
