@@ -76,10 +76,13 @@ class TaskRepository implements ITaskRepository {
         title: taskData.title.trim(),
         description: taskData.description.trim(),
         assignedTo: taskData.assignedTo.trim(),
+        createdBy: taskData.createdBy.trim(), // Asegurar que createdBy esté presente y recortado
         isCompleted: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
+
+      console.log('📝 Creando tarea con createdBy:', taskToCreate.createdBy);
 
       // Crear documento en Firestore
       const docRef = await addDoc(tasksCollection, taskToCreate);
@@ -123,20 +126,43 @@ class TaskRepository implements ITaskRepository {
 
       const firestore = this.firebaseService.getFirestore();
       const tasksCollection = collection(firestore, this.COLLECTION_NAME);
+      const trimmedUserId = userId.trim();
 
-      // Consulta ordenada por fecha de creación
-      const q = query(
-        tasksCollection,
-        where('createdBy', '==', userId.trim()),
-        orderBy('createdAt', 'desc')
-      );
+      console.log('🔍 Buscando tareas para usuario:', trimmedUserId);
 
-      const querySnapshot = await getDocs(q);
+      // Intentar consulta con orderBy primero
+      let q;
+      let querySnapshot;
+      
+      try {
+        // Consulta ordenada por fecha de creación
+        q = query(
+          tasksCollection,
+          where('createdBy', '==', trimmedUserId),
+          orderBy('createdAt', 'desc')
+        );
+        querySnapshot = await getDocs(q);
+        console.log('✅ Consulta con orderBy exitosa');
+      } catch (orderByError: any) {
+        // Si falla por falta de índice, intentar sin orderBy
+        if (orderByError?.code === 'failed-precondition' || orderByError?.message?.includes('index')) {
+          console.warn('⚠️ Índice compuesto no encontrado, consultando sin orderBy');
+          q = query(
+            tasksCollection,
+            where('createdBy', '==', trimmedUserId)
+          );
+          querySnapshot = await getDocs(q);
+          console.log('✅ Consulta sin orderBy exitosa');
+        } else {
+          throw orderByError;
+        }
+      }
+
       const tasks: TaskModel[] = [];
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        tasks.push({
+        const task = {
           id: doc.id,
           title: data.title,
           description: data.description,
@@ -147,10 +173,24 @@ class TaskRepository implements ITaskRepository {
           createdBy: data.createdBy,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        });
+        };
+        tasks.push(task);
+        console.log('📝 Tarea encontrada:', task.id, '- Creada por:', task.createdBy);
       });
 
-      console.log(`✅ Obtenidas ${tasks.length} tareas`);
+      // Ordenar manualmente por fecha de creación (descendente)
+      tasks.sort((a, b) => {
+        try {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA; // Orden descendente (más recientes primero)
+        } catch (error) {
+          console.warn('Error al ordenar tareas por fecha:', error);
+          return 0;
+        }
+      });
+
+      console.log(`✅ Obtenidas ${tasks.length} tareas para usuario ${trimmedUserId}`);
 
       return {
         success: true,
@@ -158,6 +198,7 @@ class TaskRepository implements ITaskRepository {
       };
     } catch (error) {
       console.error('❌ Error al obtener tareas:', error);
+      console.error('Detalles del error:', JSON.stringify(error, null, 2));
       return this.handleFirestoreError(error as Error);
     }
   }

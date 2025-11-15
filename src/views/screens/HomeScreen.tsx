@@ -18,6 +18,7 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { logout } from '../../store/slices/authSlice';
+import { clearTasks } from '../../store/slices/taskSlice';
 import AuthRepository from '../../repositories/AuthRepository';
 import { AppStackParamList } from '../../navigation/AppNavigator';
 
@@ -73,6 +74,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const result = await authRepository.signOut();
       
       if (result.success) {
+        // Limpiar tareas del estado antes de cerrar sesión
+        dispatch(clearTasks());
         dispatch(logout());
         console.log('✅ Sesión cerrada correctamente');
       } else {

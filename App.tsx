@@ -15,6 +15,7 @@ import { store } from './src/store/store';
 import FirebaseService from './src/services/FirebaseService';
 import RootNavigator from './src/navigation/AppNavigator';
 import { setUser } from './src/store/slices/authSlice';
+import { clearTasks } from './src/store/slices/taskSlice';
 import AuthRepository from './src/repositories/AuthRepository';
 
 /**
@@ -31,6 +32,10 @@ export default function App() {
       const authRepository = new AuthRepository();
       const unsubscribe = authRepository.onAuthStateChanged((user) => {
         store.dispatch(setUser(user));
+        // Limpiar tareas cuando el usuario se desautentica
+        if (!user) {
+          store.dispatch(clearTasks());
+        }
       });
 
       // Cleanup al desmontar

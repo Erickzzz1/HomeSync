@@ -5,7 +5,7 @@
  * filtrado, edición y eliminación.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -39,14 +39,10 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   const taskRepository = new TaskRepository();
 
-  useEffect(() => {
-    loadTasks();
-  }, []);
-
   /**
    * Carga las tareas del usuario
    */
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     if (!user?.uid) return;
 
     dispatch(setLoading(true));
@@ -58,7 +54,18 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       showAlert('Error', result.error || 'No se pudieron cargar las tareas');
     }
     dispatch(setLoading(false));
-  };
+  }, [user?.uid, dispatch]);
+
+  useEffect(() => {
+    // Limpiar tareas anteriores cuando cambia el usuario
+    if (user?.uid) {
+      dispatch(setTasks([]));
+      loadTasks();
+    } else {
+      // Si no hay usuario, limpiar tareas
+      dispatch(setTasks([]));
+    }
+  }, [user?.uid, dispatch, loadTasks]);
 
   /**
    * Refresca la lista de tareas
