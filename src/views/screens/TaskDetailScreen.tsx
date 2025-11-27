@@ -24,6 +24,16 @@ import { updateTask as updateTaskRedux, setLoading } from '../../store/slices/ta
 import TaskRepository from '../../repositories/TaskRepository';
 import { TaskModel, TaskPriority } from '../../models/TaskModel';
 
+// Import condicional del DateTimePicker (solo para móvil)
+let DateTimePicker: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    DateTimePicker = require('@react-native-community/datetimepicker').default;
+  } catch (e) {
+    console.warn('DateTimePicker no está disponible');
+  }
+}
+
 type TaskDetailScreenNavigationProp = StackNavigationProp<any, 'TaskDetail'>;
 type TaskDetailScreenRouteProp = RouteProp<{ TaskDetail: { task: TaskModel } }, 'TaskDetail'>;
 
@@ -42,6 +52,10 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [description, setDescription] = useState(task.description);
   const [assignedTo, setAssignedTo] = useState(task.assignedTo);
   const [dueDate, setDueDate] = useState(task.dueDate);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(
+    task.dueDate ? new Date(task.dueDate) : null
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
 
   const taskRepository = new TaskRepository();
@@ -81,8 +95,51 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setDescription(task.description);
     setAssignedTo(task.assignedTo);
     setDueDate(task.dueDate);
+    setSelectedDate(task.dueDate ? new Date(task.dueDate) : null);
     setPriority(task.priority);
     setIsEditing(false);
+    setShowDatePicker(false);
+  };
+
+  /**
+   * Formatea la fecha para mostrar en el input
+   */
+  const formatDateForDisplay = (date: Date | null): string => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  /**
+   * Maneja el cambio de fecha en el date picker
+   */
+  const handleDateChange = (event: any, date?: Date) => {
+    // En Android, el picker se cierra automáticamente
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (event.type === 'set' && date) {
+      setSelectedDate(date);
+      const formattedDate = formatDateForDisplay(date);
+      setDueDate(formattedDate);
+    } else if (event.type === 'dismissed') {
+      // Usuario canceló la selección
+      setShowDatePicker(false);
+    }
+  };
+
+  /**
+   * Abre el date picker
+   */
+  const openDatePicker = () => {
+    if (Platform.OS === 'web') {
+      // En web, usar input nativo type="date"
+      return;
+    }
+    setShowDatePicker(true);
   };
 
   /**
@@ -173,13 +230,60 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Fecha de Vencimiento</Text>
           {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={dueDate}
-              onChangeText={setDueDate}
-              placeholder="YYYY-MM-DD"
-              editable={!isSaving}
-            />
+            Platform.OS === 'web' ? (
+              // En web, usar un input HTML nativo
+              <View>
+                {/* @ts-ignore - Usar input HTML nativo para web */}
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e: any) => {
+                    const dateValue = e.target.value;
+                    setDueDate(dateValue);
+                    if (dateValue) {
+                      setSelectedDate(new Date(dateValue));
+                    }
+                  }}
+                  min={new Date().toISOString().split('T')[0]}
+                  disabled={isSaving}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '16px',
+                    borderRadius: '8px',
+                    border: '1px solid #E0E0E0',
+                    backgroundColor: '#F5F5F5',
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </View>
+            ) : (
+              // En móvil, usar botón que abre el date picker
+              <>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={openDatePicker}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.datePickerButtonText}>
+                    {dueDate || 'Selecciona una fecha'}
+                  </Text>
+                  <Text style={styles.calendarIcon}>📅</Text>
+                </TouchableOpacity>
+                {showDatePicker && DateTimePicker && (
+                  <DateTimePicker
+                    value={selectedDate || new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleDateChange}
+                    minimumDate={new Date()}
+                    locale="es-ES"
+                  />
+                )}
+              </>
+            )
           ) : (
             <Text style={styles.sectionValue}>
               📅 {new Date(task.dueDate).toLocaleDateString('es-ES', {
@@ -359,6 +463,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0'
+  },
+  datePickerButton: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  calendarIcon: {
+    fontSize: 20,
+    marginLeft: 8
   },
   textArea: {
     height: 100,

@@ -24,6 +24,16 @@ import { addTask, setLoading } from '../../store/slices/taskSlice';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
 import { TaskPriority } from '../../models/TaskModel';
 
+// Import condicional del DateTimePicker (solo para móvil)
+let DateTimePicker: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    DateTimePicker = require('@react-native-community/datetimepicker').default;
+  } catch (e) {
+    console.warn('DateTimePicker no está disponible');
+  }
+}
+
 type CreateTaskScreenNavigationProp = StackNavigationProp<any, 'CreateTask'>;
 
 interface Props {
@@ -39,6 +49,8 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>('Media');
   const [errors, setErrors] = useState<any>({});
 
@@ -106,12 +118,47 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
-   * Formatea la fecha para el input
+   * Formatea la fecha para mostrar en el input
    */
-  const formatDateForInput = (dateString: string): string => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
+  const formatDateForDisplay = (date: Date | null): string => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  /**
+   * Maneja el cambio de fecha en el date picker
+   */
+  const handleDateChange = (event: any, date?: Date) => {
+    // En Android, el picker se cierra automáticamente
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (event.type === 'set' && date) {
+      setSelectedDate(date);
+      const formattedDate = formatDateForDisplay(date);
+      setDueDate(formattedDate);
+      if (errors.dueDate) {
+        setErrors({ ...errors, dueDate: undefined });
+      }
+    } else if (event.type === 'dismissed') {
+      // Usuario canceló la selección
+      setShowDatePicker(false);
+    }
+  };
+
+  /**
+   * Abre el date picker
+   */
+  const openDatePicker = () => {
+    if (Platform.OS === 'web') {
+      // En web, usar input nativo type="date"
+      return;
+    }
+    setShowDatePicker(true);
   };
 
   return (
@@ -130,6 +177,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={[styles.input, errors.title && styles.inputError]}
               placeholder="Ej: Lavar la ropa"
+              placeholderTextColor="#999"
               value={title}
               onChangeText={(text) => {
                 setTitle(text);
@@ -152,6 +200,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                 errors.description && styles.inputError
               ]}
               placeholder="Describe los detalles de la tarea..."
+              placeholderTextColor="#999"
               value={description}
               onChangeText={(text) => {
                 setDescription(text);
@@ -173,6 +222,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={[styles.input, errors.assignedTo && styles.inputError]}
               placeholder="Ej: Juan, María, Papá..."
+              placeholderTextColor="#999"
               value={assignedTo}
               onChangeText={(text) => {
                 setAssignedTo(text);
@@ -189,19 +239,77 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
           {/* Fecha de vencimiento */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Fecha de Vencimiento *</Text>
-            <TextInput
-              style={[styles.input, errors.dueDate && styles.inputError]}
-              placeholder="YYYY-MM-DD"
-              value={dueDate}
-              onChangeText={(text) => {
-                setDueDate(text);
-                if (errors.dueDate) setErrors({ ...errors, dueDate: undefined });
-              }}
-              editable={!isLoading}
-            />
-            <Text style={styles.helperText}>
-              Formato: YYYY-MM-DD (ej: 2025-12-31)
-            </Text>
+            {Platform.OS === 'web' ? (
+              // En web, usar un input HTML nativo
+              <View>
+                {/* @ts-ignore - Usar input HTML nativo para web */}
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e: any) => {
+                    const dateValue = e.target.value;
+                    setDueDate(dateValue);
+                    if (dateValue) {
+                      setSelectedDate(new Date(dateValue));
+                    }
+                    if (errors.dueDate) {
+                      setErrors({ ...errors, dueDate: undefined });
+                    }
+                  }}
+                  min={new Date().toISOString().split('T')[0]}
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    fontSize: '16px',
+                    borderRadius: '12px',
+                    border: errors.dueDate ? '2px solid #FF3B30' : '2px solid #E0E0E0',
+                    backgroundColor: '#fff',
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Text style={styles.helperText}>
+                  Usa el calendario desplegable del navegador
+                </Text>
+              </View>
+            ) : (
+              // En móvil, usar botón que abre el date picker
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.datePickerButton,
+                    errors.dueDate && styles.inputError
+                  ]}
+                  onPress={openDatePicker}
+                  disabled={isLoading}
+                >
+                  <Text
+                    style={[
+                      styles.datePickerButtonText,
+                      !dueDate && styles.datePickerPlaceholder
+                    ]}
+                  >
+                    {dueDate || 'Selecciona una fecha'}
+                  </Text>
+                  <Text style={styles.calendarIcon}>📅</Text>
+                </TouchableOpacity>
+                {showDatePicker && DateTimePicker && (
+                  <DateTimePicker
+                    value={selectedDate || new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleDateChange}
+                    minimumDate={new Date()}
+                    locale="es-ES"
+                  />
+                )}
+                <Text style={styles.helperText}>
+                  Toca el campo para seleccionar una fecha
+                </Text>
+              </>
+            )}
             {errors.dueDate && (
               <Text style={styles.errorText}>{errors.dueDate}</Text>
             )}
@@ -350,6 +458,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
+  },
+  datePickerButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  datePickerPlaceholder: {
+    color: '#999'
+  },
+  calendarIcon: {
+    fontSize: 20,
+    marginLeft: 8
   },
   priorityContainer: {
     flexDirection: 'row',
