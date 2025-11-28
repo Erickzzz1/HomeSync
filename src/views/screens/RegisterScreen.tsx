@@ -15,7 +15,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -23,6 +22,8 @@ import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { useAppDispatch } from '../../store/hooks';
 import { setUser, setLoading } from '../../store/slices/authSlice';
 import AuthViewModel from '../../viewmodels/AuthViewModel';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 type RegisterScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -44,6 +45,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   }>({});
   
   const dispatch = useAppDispatch();
+  const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
   const authViewModel = new AuthViewModel();
 
   /**
@@ -80,17 +82,23 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       if (result.success && result.user) {
         dispatch(setUser(result.user));
-        Alert.alert(
-          '¡Registro Exitoso!',
+        showSuccess(
           `Bienvenido ${displayName || 'a HomeSync'}`,
-          [{ text: 'Continuar' }]
+          '¡Registro Exitoso!',
+          () => {
+            hideAlert();
+            // La navegación automática al AppStack ocurrirá cuando isAuthenticated cambie
+            // El RootNavigator mostrará HomeScreen automáticamente
+          },
+          true,
+          2000
         );
       } else {
-        Alert.alert('Error en el Registro', result.error || 'No se pudo completar el registro');
+        showError(result.error || 'No se pudo completar el registro', 'Error en el Registro');
       }
     } catch (error) {
       console.error('Error inesperado:', error);
-      Alert.alert('Error', 'Ocurrió un error inesperado al registrar');
+      showError('Ocurrió un error inesperado al registrar');
     } finally {
       setIsLoading(false);
       dispatch(setLoading(false));
@@ -131,7 +139,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nombre Completo (Opcional)</Text>
               <TextInput
-                style={[styles.input, errors.displayName && styles.inputError]}
+                style={[styles.input, errors.displayName ? styles.inputError : null]}
                 placeholder="Tu nombre"
                 placeholderTextColor="#999"
                 value={displayName}
@@ -153,7 +161,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Correo Electrónico *</Text>
               <TextInput
-                style={[styles.input, errors.email && styles.inputError]}
+                style={[styles.input, errors.email ? styles.inputError : null]}
                 placeholder="correo@ejemplo.com"
                 placeholderTextColor="#999"
                 value={email}
@@ -175,7 +183,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Contraseña *</Text>
               <TextInput
-                style={[styles.input, errors.password && styles.inputError]}
+                style={[styles.input, errors.password ? styles.inputError : null]}
                 placeholder="Mínimo 6 caracteres (letras y números)"
                 placeholderTextColor="#999"
                 value={password}
@@ -202,7 +210,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirmar Contraseña *</Text>
               <TextInput
-                style={[styles.input, errors.confirmPassword && styles.inputError]}
+                style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
                 placeholder="Repite tu contraseña"
                 placeholderTextColor="#999"
                 value={confirmPassword}
@@ -254,6 +262,18 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
     </KeyboardAvoidingView>
   );
 };

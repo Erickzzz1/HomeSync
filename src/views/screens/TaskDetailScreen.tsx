@@ -13,7 +13,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
   Platform,
   ActivityIndicator
 } from 'react-native';
@@ -23,6 +22,8 @@ import { useAppDispatch } from '../../store/hooks';
 import { updateTask as updateTaskRedux, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
 import { TaskModel, TaskPriority } from '../../models/TaskModel';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -45,6 +46,7 @@ interface Props {
 const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { task } = route.params;
   const dispatch = useAppDispatch();
+  const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -81,9 +83,12 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     if (result.success && result.task) {
       dispatch(updateTaskRedux(result.task));
       setIsEditing(false);
-      showAlert('Éxito', 'Tarea actualizada correctamente');
+      showSuccess('Tarea actualizada correctamente', 'Éxito', () => {
+        hideAlert();
+        navigation.goBack();
+      }, true, 2000);
     } else {
-      showAlert('Error', result.error || 'No se pudo actualizar la tarea');
+      showError(result.error || 'No se pudo actualizar la tarea');
     }
   };
 
@@ -140,17 +145,6 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
     setShowDatePicker(true);
-  };
-
-  /**
-   * Muestra alert
-   */
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') {
-      alert(`${title}: ${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
   };
 
   /**
@@ -236,7 +230,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 {/* @ts-ignore - Usar input HTML nativo para web */}
                 <input
                   type="date"
-                  value={dueDate}
+              value={dueDate}
                   onChange={(e: any) => {
                     const dateValue = e.target.value;
                     setDueDate(dateValue);
@@ -409,6 +403,18 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           </TouchableOpacity>
         )}
       </ScrollView>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
     </SafeAreaView>
   );
 };

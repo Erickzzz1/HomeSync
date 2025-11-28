@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Alert,
   Platform,
   ActivityIndicator
 } from 'react-native';
@@ -21,6 +20,8 @@ import { logout } from '../../store/slices/authSlice';
 import { clearTasks } from '../../store/slices/taskSlice';
 import AuthRepository from '../../repositories/AuthRepository';
 import { AppStackParamList } from '../../navigation/AppNavigator';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 type HomeScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Home'>;
 
@@ -31,37 +32,21 @@ interface Props {
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
+  const { alertState, showError, showConfirm, hideAlert } = useCustomAlert();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   /**
    * Maneja el cierre de sesión
    */
-  const handleLogout = async () => {
-    // En web, usar confirm; en móvil, usar Alert
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm('¿Estás seguro que deseas cerrar sesión?');
-      if (confirmed) {
-        await performLogout();
-      }
-    } else {
-      Alert.alert(
-        'Cerrar Sesión',
-        '¿Estás seguro que deseas cerrar sesión?',
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          },
-          {
-            text: 'Cerrar Sesión',
-            style: 'destructive',
-            onPress: async () => {
-              await performLogout();
-            }
-          }
-        ]
-      );
-    }
+  const handleLogout = () => {
+    showConfirm(
+      '¿Estás seguro que deseas cerrar sesión?',
+      'Cerrar Sesión',
+      () => performLogout(),
+      undefined,
+      'Cerrar Sesión',
+      'Cancelar'
+    );
   };
 
   /**
@@ -80,19 +65,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         console.log('✅ Sesión cerrada correctamente');
       } else {
         const errorMsg = result.error || 'No se pudo cerrar sesión';
-        if (Platform.OS === 'web') {
-          alert('Error: ' + errorMsg);
-        } else {
-          Alert.alert('Error', errorMsg);
-        }
+        showError(errorMsg);
       }
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
-      if (Platform.OS === 'web') {
-        alert('Error inesperado al cerrar sesión');
-      } else {
-        Alert.alert('Error', 'Error inesperado al cerrar sesión');
-      }
+      showError('Error inesperado al cerrar sesión');
     } finally {
       setIsLoggingOut(false);
     }
@@ -145,6 +122,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
       </View>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
     </SafeAreaView>
   );
 };

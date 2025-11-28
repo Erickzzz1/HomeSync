@@ -15,7 +15,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -23,6 +22,8 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { addTask, setLoading } from '../../store/slices/taskSlice';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
 import { TaskPriority } from '../../models/TaskModel';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -44,6 +45,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
   const { isLoading } = useAppSelector((state) => state.tasks);
   const dispatch = useAppDispatch();
+  const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -61,7 +63,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
    */
   const handleCreateTask = async () => {
     if (!user?.uid) {
-      showAlert('Error', 'Usuario no autenticado');
+      showError('Usuario no autenticado');
       return;
     }
 
@@ -97,23 +99,14 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
     if (result.success && result.task) {
       dispatch(addTask(result.task));
-      showAlert('Éxito', 'Tarea creada correctamente', () => {
+      // Mostrar alerta de éxito con paloma verde animada
+      showSuccess('Tarea creada correctamente', 'Éxito', () => {
+        // Redirigir a la lista de tareas
+        hideAlert();
         navigation.goBack();
-      });
+      }, true, 2000);
     } else {
-      showAlert('Error', result.error || 'No se pudo crear la tarea');
-    }
-  };
-
-  /**
-   * Muestra alert compatible con web y móvil
-   */
-  const showAlert = (title: string, message: string, onOk?: () => void) => {
-    if (Platform.OS === 'web') {
-      alert(`${title}: ${message}`);
-      if (onOk) onOk();
-    } else {
-      Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+      showError(result.error || 'No se pudo crear la tarea');
     }
   };
 
@@ -406,6 +399,18 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
     </SafeAreaView>
   );
 };

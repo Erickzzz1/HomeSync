@@ -14,7 +14,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
-  Alert,
   Platform,
   RefreshControl
 } from 'react-native';
@@ -23,6 +22,8 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setTasks, removeTask, updateTask, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
 import { TaskModel } from '../../models/TaskModel';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 type TaskListScreenNavigationProp = StackNavigationProp<any, 'TaskList'>;
 
@@ -34,6 +35,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
   const { tasks, isLoading } = useAppSelector((state) => state.tasks);
   const dispatch = useAppDispatch();
+  const { alertState, showSuccess, showError, showConfirm, hideAlert } = useCustomAlert();
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
@@ -51,10 +53,10 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     if (result.success && result.tasks) {
       dispatch(setTasks(result.tasks));
     } else {
-      showAlert('Error', result.error || 'No se pudieron cargar las tareas');
+      showError(result.error || 'No se pudieron cargar las tareas');
     }
     dispatch(setLoading(false));
-  }, [user?.uid, dispatch]);
+  }, [user?.uid, dispatch, showError]);
 
   useEffect(() => {
     // Limpiar tareas anteriores cuando cambia el usuario
@@ -102,7 +104,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     if (result.success && result.task) {
       dispatch(updateTask(result.task));
     } else {
-      showAlert('Error', result.error || 'No se pudo actualizar la tarea');
+      showError(result.error || 'No se pudo actualizar la tarea');
     }
     dispatch(setLoading(false));
   };
@@ -111,51 +113,25 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
    * Elimina una tarea
    */
   const deleteTask = async (taskId: string) => {
-    const confirmDelete = () => {
-      if (Platform.OS === 'web') {
-        return window.confirm('¿Estás seguro de que deseas eliminar esta tarea?');
-      } else {
-        return new Promise<boolean>((resolve) => {
-          Alert.alert(
-            'Eliminar Tarea',
-            '¿Estás seguro de que deseas eliminar esta tarea?',
-            [
-              { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
-              {
-                text: 'Eliminar',
-                style: 'destructive',
-                onPress: () => resolve(true)
-              }
-            ]
-          );
-        });
-      }
-    };
+    showConfirm(
+      '¿Estás seguro de que deseas eliminar esta tarea?',
+      'Eliminar Tarea',
+      async () => {
+        dispatch(setLoading(true));
+        const result = await taskRepository.deleteTask(taskId);
 
-    const confirmed = await confirmDelete();
-    if (!confirmed) return;
-
-    dispatch(setLoading(true));
-    const result = await taskRepository.deleteTask(taskId);
-
-    if (result.success) {
-      dispatch(removeTask(taskId));
-      showAlert('Éxito', 'Tarea eliminada correctamente');
-    } else {
-      showAlert('Error', result.error || 'No se pudo eliminar la tarea');
-    }
-    dispatch(setLoading(false));
-  };
-
-  /**
-   * Muestra un alert compatible con web y móvil
-   */
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') {
-      alert(`${title}: ${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
+        if (result.success) {
+          dispatch(removeTask(taskId));
+          showSuccess('Tarea eliminada correctamente');
+        } else {
+          showError(result.error || 'No se pudo eliminar la tarea');
+        }
+        dispatch(setLoading(false));
+      },
+      undefined,
+      'Eliminar',
+      'Cancelar'
+    );
   };
 
   /**
@@ -363,6 +339,19 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
     </SafeAreaView>
   );
 };

@@ -15,7 +15,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -23,6 +22,8 @@ import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { useAppDispatch } from '../../store/hooks';
 import { setUser, setLoading, setError } from '../../store/slices/authSlice';
 import AuthViewModel from '../../viewmodels/AuthViewModel';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -37,6 +38,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   
   const dispatch = useAppDispatch();
+  const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
   const authViewModel = new AuthViewModel();
 
   /**
@@ -62,14 +64,20 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       if (result.success && result.user) {
         // Actualizar Redux store
         dispatch(setUser(result.user));
-        Alert.alert('¡Bienvenido!', 'Has iniciado sesión correctamente');
+        showSuccess(
+          'Has iniciado sesión correctamente',
+          '¡Bienvenido!',
+          () => {
+            hideAlert();
+            // La navegación automática al AppStack ocurrirá cuando isAuthenticated cambie
+            // El RootNavigator mostrará HomeScreen automáticamente
+          },
+          true,
+          2000
+        );
       } else {
         const errorMessage = result.error || 'Error al iniciar sesión';
         dispatch(setError(errorMessage));
-        
-        // Debug: ver qué errorCode está llegando
-        console.log('Error code recibido:', result.errorCode);
-        console.log('Error message:', errorMessage);
         
         // Mostrar error en el campo correspondiente
         if (result.errorCode === 'auth/wrong-password' || 
@@ -79,24 +87,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             errorMessage.toLowerCase().includes('password')) {
           // Error de contraseña incorrecta - mostrar en campo de contraseña
           setErrors({ password: 'Contraseña incorrecta' });
-          // También mostrar en Alert para asegurar que se vea
-          if (Platform.OS === 'web') {
-            alert('Contraseña incorrecta');
-          } else {
-            Alert.alert('Error', 'Contraseña incorrecta');
-          }
+          showError('Contraseña incorrecta');
         } else if (result.errorCode === 'auth/user-not-found' ||
                    errorMessage.toLowerCase().includes('no existe') ||
                    errorMessage.toLowerCase().includes('not found')) {
           // Error de email no encontrado - mostrar en campo de email
           setErrors({ email: 'No existe una cuenta con este correo electrónico' });
         } else {
-          // Otros errores - mostrar en Alert y también en campo de contraseña si parece ser de contraseña
-          if (Platform.OS === 'web') {
-            alert(errorMessage);
-          } else {
-            Alert.alert('Error', errorMessage);
-          }
+          // Otros errores
+          showError(errorMessage);
           // Si el mensaje menciona contraseña, también mostrarlo en el campo
           if (errorMessage.toLowerCase().includes('contraseña') || 
               errorMessage.toLowerCase().includes('password')) {
@@ -106,7 +105,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error inesperado:', error);
-      Alert.alert('Error', 'Ocurrió un error inesperado');
+      showError('Ocurrió un error inesperado');
       dispatch(setError('Error inesperado'));
     } finally {
       setIsLoading(false);
@@ -144,7 +143,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Correo Electrónico</Text>
               <TextInput
-                style={[styles.input, errors.email && styles.inputError]}
+                style={[styles.input, errors.email ? styles.inputError : null]}
                 placeholder="correo@ejemplo.com"
                 placeholderTextColor="#999"
                 value={email}
@@ -166,7 +165,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Contraseña</Text>
               <TextInput
-                style={[styles.input, errors.password && styles.inputError]}
+                style={[styles.input, errors.password ? styles.inputError : null]}
                 placeholder="Tu contraseña"
                 placeholderTextColor="#999"
                 value={password}
@@ -222,6 +221,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
     </KeyboardAvoidingView>
   );
 };
