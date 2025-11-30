@@ -98,6 +98,12 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
   }, [visible, type, autoClose, autoCloseDelay]);
 
   const handleClose = () => {
+    // Cerrar el modal inmediatamente para evitar que el overlay se quede
+    if (onCancel) {
+      onCancel();
+    }
+    
+    // Ejecutar la animación de salida
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 0,
@@ -110,16 +116,20 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
         useNativeDriver: true
       })
     ]).start(() => {
-      // Para alerts de éxito, ejecutar onConfirm si existe, sino onCancel
+      // Para alerts de éxito, ejecutar onConfirm después de la animación si existe
       if (type === 'success' && onConfirm) {
         onConfirm();
-      } else if (onCancel) {
-        onCancel();
       }
     });
   };
 
   const handleConfirm = () => {
+    // Cerrar el modal inmediatamente para evitar que el overlay se quede
+    if (onCancel) {
+      onCancel();
+    }
+    
+    // Ejecutar la animación de salida
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 0,
@@ -132,6 +142,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
         useNativeDriver: true
       })
     ]).start(() => {
+      // Ejecutar el callback después de la animación si existe
       if (onConfirm) {
         onConfirm();
       }
@@ -213,9 +224,14 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
             ) : (
               <TouchableOpacity
                 style={[styles.button, styles.successButton]}
-                onPress={handleConfirm}
+                onPress={() => {
+                  // Para errores y success, siempre cerrar el modal
+                  handleConfirm();
+                }}
               >
-                <Text style={styles.successButtonText}>OK</Text>
+                <Text style={styles.successButtonText}>
+                  {type === 'error' ? 'Aceptar' : 'OK'}
+                </Text>
               </TouchableOpacity>
             )}
           </View>

@@ -2,17 +2,15 @@
  * App.tsx - Punto de entrada principal de la aplicación HomeSync
  * 
  * Configura:
- * - Firebase Service (Singleton)
  * - Redux Provider para estado global
  * - React Navigation para navegación
- * - Observador de autenticación
+ * - Observador de autenticación (a través de la API)
  */
 
 import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { Provider } from 'react-redux';
 import { store } from './src/store/store';
-import FirebaseService from './src/services/FirebaseService';
 import RootNavigator from './src/navigation/AppNavigator';
 import { setUser } from './src/store/slices/authSlice';
 import { clearTasks } from './src/store/slices/taskSlice';
@@ -23,12 +21,9 @@ import AuthRepository from './src/repositories/AuthRepository';
  */
 export default function App() {
   useEffect(() => {
-    // Inicializar Firebase al arrancar la aplicación
+    // Configurar listener de autenticación persistente
+    // Ahora se conecta a la API en lugar de Firebase directamente
     try {
-      const firebaseService = FirebaseService.getInstance();
-      firebaseService.initialize();
-
-      // Configurar listener de autenticación persistente
       const authRepository = new AuthRepository();
       const unsubscribe = authRepository.onAuthStateChanged((user) => {
         store.dispatch(setUser(user));

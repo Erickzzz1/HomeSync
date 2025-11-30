@@ -62,7 +62,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         // Limpiar tareas del estado antes de cerrar sesión
         dispatch(clearTasks());
         dispatch(logout());
-        console.log('✅ Sesión cerrada correctamente');
+        // console.log('Sesión cerrada correctamente');
       } else {
         const errorMsg = result.error || 'No se pudo cerrar sesión';
         showError(errorMsg);

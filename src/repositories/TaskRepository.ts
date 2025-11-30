@@ -1,31 +1,17 @@
 /**
  * TaskRepository - Implementación del Repository Pattern para Tareas
  * 
- * Implementa la interfaz ITaskRepository utilizando Firebase Firestore.
+ * Implementa la interfaz ITaskRepository utilizando la API backend.
  * Aplica principios de codificación segura en todas las operaciones CRUD.
  * 
  * Principios de Seguridad Implementados:
  * - Validación exhaustiva de datos de entrada
  * - Manejo robusto de errores con try-catch
  * - Mensajes de error amigables sin exponer detalles técnicos
- * - Sanitización de datos antes de enviar a Firestore
+ * - Sanitización de datos antes de enviar a la API
  */
 
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  Timestamp,
-  serverTimestamp
-} from 'firebase/firestore';
-import FirebaseService from '../services/FirebaseService';
+import ApiService from '../services/ApiService';
 import {
   ITaskRepository,
   TaskOperationResult
@@ -36,21 +22,18 @@ import {
   UpdateTaskData
 } from '../models/TaskModel';
 
+// Interfaz para las respuestas de la API
+interface ApiTaskResponse {
+  success: boolean;
+  task?: TaskModel;
+  tasks?: TaskModel[];
+  error?: string;
+  errorCode?: string;
+}
+
 class TaskRepository implements ITaskRepository {
-  private firebaseService: FirebaseService;
-  private readonly COLLECTION_NAME = 'tasks';
-
-  constructor() {
-    this.firebaseService = FirebaseService.getInstance();
-  }
-
   /**
-   * Crea una nueva tarea en Firestore
-   * 
-   * Seguridad:
-   * - Valida todos los campos antes de crear
-   * - Sanitiza entradas
-   * - Maneja errores de Firestore
+   * Crea una nueva tarea a través de la API
    * 
    * @param taskData Datos de la tarea a crear
    * @returns Resultado con la tarea creada o error
@@ -67,51 +50,43 @@ class TaskRepository implements ITaskRepository {
         };
       }
 
-      const firestore = this.firebaseService.getFirestore();
-      const tasksCollection = collection(firestore, this.COLLECTION_NAME);
-
-      // Preparar datos con timestamps
-      const taskToCreate = {
-        ...taskData,
+      // Enviar petición a la API
+      const response = await ApiService.post<ApiTaskResponse>('/api/tasks', {
         title: taskData.title.trim(),
         description: taskData.description.trim(),
         assignedTo: taskData.assignedTo.trim(),
-        createdBy: taskData.createdBy.trim(), // Asegurar que createdBy esté presente y recortado
-        isCompleted: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
+        dueDate: taskData.dueDate,
+        priority: taskData.priority
+      });
 
-      console.log('📝 Creando tarea con createdBy:', taskToCreate.createdBy);
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al crear la tarea',
+          errorCode: response.errorCode
+        };
+      }
 
-      // Crear documento en Firestore
-      const docRef = await addDoc(tasksCollection, taskToCreate);
-
-      // Obtener el documento creado con su ID
-      const createdDoc = await getDoc(docRef);
-      const createdTask: TaskModel = {
-        id: docRef.id,
-        ...taskToCreate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      } as TaskModel;
-
-      console.log('✅ Tarea creada exitosamente:', docRef.id);
+      // console.log('Tarea creada exitosamente:', response.task?.id);
 
       return {
         success: true,
-        task: createdTask
+        task: response.task
       };
-    } catch (error) {
-      console.error('❌ Error al crear tarea:', error);
-      return this.handleFirestoreError(error as Error);
+    } catch (error: any) {
+      console.error('Error al crear tarea:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al crear la tarea',
+        errorCode: 'CREATE_TASK_ERROR'
+      };
     }
   }
 
   /**
-   * Obtiene todas las tareas de un usuario/hogar
+   * Obtiene todas las tareas de un usuario a través de la API
    * 
-   * @param userId ID del usuario creador
+   * @param userId ID del usuario creador (no se usa directamente, la API lo obtiene del token)
    * @returns Lista de tareas
    */
   async getTasks(userId: string): Promise<TaskOperationResult> {
@@ -124,87 +99,37 @@ class TaskRepository implements ITaskRepository {
         };
       }
 
-      const firestore = this.firebaseService.getFirestore();
-      const tasksCollection = collection(firestore, this.COLLECTION_NAME);
-      const trimmedUserId = userId.trim();
+      // console.log('Buscando tareas para usuario:', userId.trim());
 
-      console.log('🔍 Buscando tareas para usuario:', trimmedUserId);
+      // Enviar petición a la API (el userId se valida pero la API obtiene el usuario del token)
+      const response = await ApiService.get<ApiTaskResponse>('/api/tasks');
 
-      // Intentar consulta con orderBy primero
-      let q;
-      let querySnapshot;
-      
-      try {
-        // Consulta ordenada por fecha de creación
-        q = query(
-          tasksCollection,
-          where('createdBy', '==', trimmedUserId),
-          orderBy('createdAt', 'desc')
-        );
-        querySnapshot = await getDocs(q);
-        console.log('✅ Consulta con orderBy exitosa');
-      } catch (orderByError: any) {
-        // Si falla por falta de índice, intentar sin orderBy
-        if (orderByError?.code === 'failed-precondition' || orderByError?.message?.includes('index')) {
-          console.warn('⚠️ Índice compuesto no encontrado, consultando sin orderBy');
-          q = query(
-            tasksCollection,
-            where('createdBy', '==', trimmedUserId)
-          );
-          querySnapshot = await getDocs(q);
-          console.log('✅ Consulta sin orderBy exitosa');
-        } else {
-          throw orderByError;
-        }
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al obtener las tareas',
+          errorCode: response.errorCode
+        };
       }
 
-      const tasks: TaskModel[] = [];
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const task = {
-          id: doc.id,
-          title: data.title,
-          description: data.description,
-          assignedTo: data.assignedTo,
-          dueDate: data.dueDate,
-          priority: data.priority,
-          isCompleted: data.isCompleted,
-          createdBy: data.createdBy,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        };
-        tasks.push(task);
-        console.log('📝 Tarea encontrada:', task.id, '- Creada por:', task.createdBy);
-      });
-
-      // Ordenar manualmente por fecha de creación (descendente)
-      tasks.sort((a, b) => {
-        try {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          return dateB - dateA; // Orden descendente (más recientes primero)
-        } catch (error) {
-          console.warn('Error al ordenar tareas por fecha:', error);
-          return 0;
-        }
-      });
-
-      console.log(`✅ Obtenidas ${tasks.length} tareas para usuario ${trimmedUserId}`);
+      // console.log(`Obtenidas ${response.tasks?.length || 0} tareas para usuario ${userId.trim()}`);
 
       return {
         success: true,
-        tasks
+        tasks: response.tasks || []
       };
-    } catch (error) {
-      console.error('❌ Error al obtener tareas:', error);
-      console.error('Detalles del error:', JSON.stringify(error, null, 2));
-      return this.handleFirestoreError(error as Error);
+    } catch (error: any) {
+      console.error('Error al obtener tareas:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al obtener las tareas',
+        errorCode: 'GET_TASKS_ERROR'
+      };
     }
   }
 
   /**
-   * Obtiene una tarea específica por ID
+   * Obtiene una tarea específica por ID a través de la API
    * 
    * @param taskId ID de la tarea
    * @returns Tarea solicitada
@@ -219,48 +144,33 @@ class TaskRepository implements ITaskRepository {
         };
       }
 
-      const firestore = this.firebaseService.getFirestore();
-      const taskDoc = doc(firestore, this.COLLECTION_NAME, taskId);
-      const taskSnapshot = await getDoc(taskDoc);
+      // Enviar petición a la API
+      const response = await ApiService.get<ApiTaskResponse>(`/api/tasks/${taskId}`);
 
-      if (!taskSnapshot.exists()) {
+      if (!response.success) {
         return {
           success: false,
-          error: 'La tarea no existe',
-          errorCode: 'NOT_FOUND'
+          error: response.error || 'Error al obtener la tarea',
+          errorCode: response.errorCode
         };
       }
 
-      const data = taskSnapshot.data();
-      const task: TaskModel = {
-        id: taskSnapshot.id,
-        title: data.title,
-        description: data.description,
-        assignedTo: data.assignedTo,
-        dueDate: data.dueDate,
-        priority: data.priority,
-        isCompleted: data.isCompleted,
-        createdBy: data.createdBy,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
-      };
-
       return {
         success: true,
-        task
+        task: response.task
       };
-    } catch (error) {
-      console.error('❌ Error al obtener tarea:', error);
-      return this.handleFirestoreError(error as Error);
+    } catch (error: any) {
+      console.error('Error al obtener tarea:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al obtener la tarea',
+        errorCode: 'GET_TASK_ERROR'
+      };
     }
   }
 
   /**
-   * Actualiza una tarea existente
-   * 
-   * Seguridad:
-   * - Valida datos de actualización
-   * - Solo actualiza campos permitidos
+   * Actualiza una tarea existente a través de la API
    * 
    * @param taskId ID de la tarea
    * @param data Datos a actualizar
@@ -286,24 +196,8 @@ class TaskRepository implements ITaskRepository {
         };
       }
 
-      const firestore = this.firebaseService.getFirestore();
-      const taskDoc = doc(firestore, this.COLLECTION_NAME, taskId);
-
-      // Verificar que la tarea existe
-      const taskSnapshot = await getDoc(taskDoc);
-      if (!taskSnapshot.exists()) {
-        return {
-          success: false,
-          error: 'La tarea no existe',
-          errorCode: 'NOT_FOUND'
-        };
-      }
-
-      // Sanitizar y preparar datos para actualización
-      const updateData: any = {
-        updatedAt: serverTimestamp()
-      };
-
+      // Preparar datos de actualización
+      const updateData: any = {};
       if (data.title !== undefined) {
         updateData.title = data.title.trim();
       }
@@ -323,21 +217,35 @@ class TaskRepository implements ITaskRepository {
         updateData.isCompleted = data.isCompleted;
       }
 
-      // Actualizar en Firestore
-      await updateDoc(taskDoc, updateData);
+      // Enviar petición a la API
+      const response = await ApiService.put<ApiTaskResponse>(`/api/tasks/${taskId}`, updateData);
 
-      console.log('✅ Tarea actualizada exitosamente:', taskId);
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al actualizar la tarea',
+          errorCode: response.errorCode
+        };
+      }
 
-      // Obtener tarea actualizada
-      return await this.getTaskById(taskId);
-    } catch (error) {
-      console.error('❌ Error al actualizar tarea:', error);
-      return this.handleFirestoreError(error as Error);
+      // console.log('Tarea actualizada exitosamente:', taskId);
+
+      return {
+        success: true,
+        task: response.task
+      };
+    } catch (error: any) {
+      console.error('Error al actualizar tarea:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al actualizar la tarea',
+        errorCode: 'UPDATE_TASK_ERROR'
+      };
     }
   }
 
   /**
-   * Elimina una tarea
+   * Elimina una tarea a través de la API
    * 
    * @param taskId ID de la tarea a eliminar
    * @returns Resultado de la operación
@@ -352,42 +260,75 @@ class TaskRepository implements ITaskRepository {
         };
       }
 
-      const firestore = this.firebaseService.getFirestore();
-      const taskDoc = doc(firestore, this.COLLECTION_NAME, taskId);
+      // Enviar petición a la API
+      const response = await ApiService.delete<ApiTaskResponse>(`/api/tasks/${taskId}`);
 
-      // Verificar que la tarea existe
-      const taskSnapshot = await getDoc(taskDoc);
-      if (!taskSnapshot.exists()) {
+      if (!response.success) {
         return {
           success: false,
-          error: 'La tarea no existe',
-          errorCode: 'NOT_FOUND'
+          error: response.error || 'Error al eliminar la tarea',
+          errorCode: response.errorCode
         };
       }
 
-      // Eliminar documento
-      await deleteDoc(taskDoc);
-
-      console.log('✅ Tarea eliminada exitosamente:', taskId);
+      // console.log('Tarea eliminada exitosamente:', taskId);
 
       return {
         success: true
       };
-    } catch (error) {
-      console.error('❌ Error al eliminar tarea:', error);
-      return this.handleFirestoreError(error as Error);
+    } catch (error: any) {
+      console.error('Error al eliminar tarea:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al eliminar la tarea',
+        errorCode: 'DELETE_TASK_ERROR'
+      };
     }
   }
 
   /**
-   * Marca una tarea como completada o no completada
+   * Marca una tarea como completada o no completada a través de la API
    * 
    * @param taskId ID de la tarea
    * @param isCompleted Estado de completado
    * @returns Resultado de la operación
    */
   async toggleTaskCompletion(taskId: string, isCompleted: boolean): Promise<TaskOperationResult> {
-    return await this.updateTask(taskId, { isCompleted });
+    try {
+      if (!taskId || !taskId.trim()) {
+        return {
+          success: false,
+          error: 'El ID de la tarea es requerido',
+          errorCode: 'VALIDATION_ERROR'
+        };
+      }
+
+      // Enviar petición a la API
+      const response = await ApiService.patch<ApiTaskResponse>(
+        `/api/tasks/${taskId}/toggle`,
+        { isCompleted }
+      );
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al cambiar el estado de la tarea',
+          errorCode: response.errorCode
+        };
+      }
+
+      return {
+        success: true,
+        task: response.task
+      };
+    } catch (error: any) {
+      console.error('Error al cambiar estado de tarea:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al cambiar el estado de la tarea',
+        errorCode: 'TOGGLE_TASK_ERROR'
+      };
+    }
   }
 
   /**
@@ -495,44 +436,6 @@ class TaskRepository implements ITaskRepository {
 
     return null;
   }
-
-  /**
-   * Maneja errores de Firestore
-   * Convierte errores técnicos en mensajes amigables
-   * Principio de Seguridad: No exponer detalles técnicos
-   * 
-   * @param error Error de Firestore
-   * @returns Resultado con mensaje de error amigable
-   */
-  private handleFirestoreError(error: Error): TaskOperationResult {
-    let errorMessage: string;
-    let errorCode = 'UNKNOWN_ERROR';
-
-    // Errores comunes de Firestore
-    if (error.message.includes('permission-denied')) {
-      errorMessage = 'No tienes permisos para realizar esta operación';
-      errorCode = 'PERMISSION_DENIED';
-    } else if (error.message.includes('not-found')) {
-      errorMessage = 'El recurso solicitado no existe';
-      errorCode = 'NOT_FOUND';
-    } else if (error.message.includes('network')) {
-      errorMessage = 'Error de conexión. Verifica tu internet';
-      errorCode = 'NETWORK_ERROR';
-    } else if (error.message.includes('unavailable')) {
-      errorMessage = 'El servicio no está disponible temporalmente';
-      errorCode = 'SERVICE_UNAVAILABLE';
-    } else {
-      errorMessage = 'Ocurrió un error inesperado. Intenta nuevamente';
-      console.error('Error no manejado:', error.message);
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-      errorCode
-    };
-  }
 }
 
 export default TaskRepository;
-

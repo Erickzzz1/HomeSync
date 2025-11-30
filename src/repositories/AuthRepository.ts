@@ -1,57 +1,114 @@
 /**
  * AuthRepository - Implementación del Repository Pattern
  * 
- * Implementa la interfaz IAuthRepository utilizando Firebase Authentication.
+ * Implementa la interfaz IAuthRepository utilizando la API backend.
  * Aplica principios de codificación segura en todas las operaciones.
  * 
  * Principios de Seguridad Implementados:
  * - Manejo robusto de errores con try-catch
  * - Validación de datos de entrada
  * - Mensajes de error amigables sin exponer detalles técnicos
- * - Uso de comunicación cifrada (HTTPS por defecto en Firebase)
- * - Gestión segura de tokens (manejada por Firebase SDK)
+ * - Gestión segura de tokens
  */
 
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged as firebaseOnAuthStateChanged,
-  updateProfile,
-  User,
-  AuthError
-} from 'firebase/auth';
-import FirebaseService from '../services/FirebaseService';
+import ApiService from '../services/ApiService';
 import {
   IAuthRepository,
   AuthResult,
   SignUpData,
   SignInData
 } from './interfaces/IAuthRepository';
+import { User } from 'firebase/auth';
+
+// Interfaz para la respuesta de la API
+interface ApiUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  emailVerified: boolean;
+}
+
+interface ApiAuthResponse {
+  success: boolean;
+  user?: ApiUser;
+  token?: string;
+  error?: string;
+  errorCode?: string;
+}
 
 class AuthRepository implements IAuthRepository {
-  private firebaseService: FirebaseService;
+  private currentUser: User | null = null;
+  private authStateListeners: Array<(user: User | null) => void> = [];
 
   constructor() {
-    this.firebaseService = FirebaseService.getInstance();
+    // Verificar si hay un token guardado al inicializar
+    this.checkAuthState();
   }
 
   /**
-   * Registra un nuevo usuario en Firebase Authentication
-   * 
-   * Seguridad:
-   * - Valida formato de email y contraseña antes de enviar
-   * - Maneja errores específicos de Firebase
-   * - No expone detalles técnicos al usuario
+   * Convierte un usuario de la API a un objeto User de Firebase
+   */
+  private apiUserToFirebaseUser(apiUser: ApiUser): User {
+    // Crear un objeto que simule la estructura de User de Firebase
+    return {
+      uid: apiUser.uid,
+      email: apiUser.email,
+      displayName: apiUser.displayName,
+      emailVerified: apiUser.emailVerified,
+      // Propiedades requeridas por la interfaz User
+      isAnonymous: false,
+      metadata: {} as any,
+      providerData: [],
+      refreshToken: '',
+      tenantId: null,
+      delete: async () => {},
+      getIdToken: async () => {
+        const token = await ApiService.getToken();
+        return token || '';
+      },
+      getIdTokenResult: async () => ({} as any),
+      reload: async () => {},
+      toJSON: () => ({}),
+    } as User;
+  }
+
+  /**
+   * Notifica a todos los listeners sobre cambios en el estado de autenticación
+   */
+  private notifyAuthStateChange(user: User | null) {
+    this.currentUser = user;
+    this.authStateListeners.forEach(callback => callback(user));
+  }
+
+  /**
+   * Verifica el estado de autenticación actual
+   */
+  private async checkAuthState() {
+    try {
+      const token = await ApiService.getToken();
+      if (token) {
+        const response = await ApiService.get<ApiAuthResponse>('/api/auth/me');
+        if (response.success && response.user) {
+          const user = this.apiUserToFirebaseUser(response.user);
+          this.notifyAuthStateChange(user);
+          return;
+        }
+      }
+    } catch (error) {
+      // console.log('No hay sesión activa');
+    }
+    this.notifyAuthStateChange(null);
+  }
+
+  /**
+   * Registra un nuevo usuario a través de la API
    * 
    * @param data Datos de registro validados
    * @returns Resultado de la operación con información del usuario o error
    */
   async signUp(data: SignUpData): Promise<AuthResult> {
     try {
-      const auth = this.firebaseService.getAuth();
-
-      // Validación adicional antes de enviar a Firebase
+      // Validación adicional antes de enviar a la API
       const validationError = this.validateSignUpData(data);
       if (validationError) {
         return {
@@ -61,42 +118,57 @@ class AuthRepository implements IAuthRepository {
         };
       }
 
-      // Crear usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
+      // Enviar petición a la API
+      const response = await ApiService.post<ApiAuthResponse>('/api/auth/signup', {
+        email: data.email,
+        password: data.password,
+        displayName: data.displayName
+      });
 
-      // Si se proporciona nombre, actualizar perfil
-      if (data.displayName && userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: data.displayName
-        });
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al registrar usuario',
+          errorCode: response.errorCode
+        };
       }
 
-      console.log('✅ Usuario registrado exitosamente:', userCredential.user.email);
+      // Guardar token
+      if (response.token) {
+        await ApiService.saveToken(response.token);
+      }
+
+      // Convertir usuario de API a formato Firebase
+      let user: User | undefined;
+      if (response.user) {
+        user = this.apiUserToFirebaseUser(response.user);
+        this.notifyAuthStateChange(user);
+      }
+
+      // console.log('Usuario registrado exitosamente:', response.user?.email);
 
       return {
         success: true,
-        user: userCredential.user
+        user
       };
-    } catch (error) {
-      console.error('❌ Error en registro:', error);
-      return this.handleAuthError(error as AuthError);
+    } catch (error: any) {
+      console.error('Error en registro:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al registrar el usuario',
+        errorCode: 'SIGNUP_ERROR'
+      };
     }
   }
 
   /**
-   * Inicia sesión con email y contraseña
+   * Inicia sesión con email y contraseña a través de la API
    * 
    * @param data Credenciales de inicio de sesión
    * @returns Resultado de la operación
    */
   async signIn(data: SignInData): Promise<AuthResult> {
     try {
-      const auth = this.firebaseService.getAuth();
-
       const validationError = this.validateSignInData(data);
       if (validationError) {
         return {
@@ -106,21 +178,45 @@ class AuthRepository implements IAuthRepository {
         };
       }
 
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
+      // Enviar petición a la API
+      const response = await ApiService.post<ApiAuthResponse>('/api/auth/signin', {
+        email: data.email,
+        password: data.password
+      });
 
-      console.log('✅ Inicio de sesión exitoso:', userCredential.user.email);
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al iniciar sesión',
+          errorCode: response.errorCode
+        };
+      }
+
+      // Guardar token
+      if (response.token) {
+        await ApiService.saveToken(response.token);
+      }
+
+      // Convertir usuario de API a formato Firebase
+      let user: User | undefined;
+      if (response.user) {
+        user = this.apiUserToFirebaseUser(response.user);
+        this.notifyAuthStateChange(user);
+      }
+
+      // console.log('Inicio de sesión exitoso:', response.user?.email);
 
       return {
         success: true,
-        user: userCredential.user
+        user
       };
-    } catch (error) {
-      console.error('❌ Error en inicio de sesión:', error);
-      return this.handleAuthError(error as AuthError);
+    } catch (error: any) {
+      console.error('Error en inicio de sesión:', error);
+      return {
+        success: false,
+        error: error.message || 'Ocurrió un error al iniciar sesión',
+        errorCode: 'SIGNIN_ERROR'
+      };
     }
   }
 
@@ -131,16 +227,25 @@ class AuthRepository implements IAuthRepository {
    */
   async signOut(): Promise<AuthResult> {
     try {
-      const auth = this.firebaseService.getAuth();
-      await firebaseSignOut(auth);
+      // Llamar a la API para cerrar sesión
+      await ApiService.post('/api/auth/signout');
 
-      console.log('✅ Sesión cerrada exitosamente');
+      // Eliminar token local
+      await ApiService.removeToken();
+
+      // Notificar cambio de estado
+      this.notifyAuthStateChange(null);
+
+      // console.log('Sesión cerrada exitosamente');
 
       return {
         success: true
       };
     } catch (error) {
-      console.error('❌ Error al cerrar sesión:', error);
+      console.error('Error al cerrar sesión:', error);
+      // Aún así eliminar el token local
+      await ApiService.removeToken();
+      this.notifyAuthStateChange(null);
       return {
         success: false,
         error: 'No se pudo cerrar la sesión. Intenta nuevamente.',
@@ -155,8 +260,7 @@ class AuthRepository implements IAuthRepository {
    * @returns Usuario actual o null si no hay sesión
    */
   getCurrentUser(): User | null {
-    const auth = this.firebaseService.getAuth();
-    return auth.currentUser;
+    return this.currentUser;
   }
 
   /**
@@ -166,8 +270,19 @@ class AuthRepository implements IAuthRepository {
    * @returns Función para cancelar la suscripción
    */
   onAuthStateChanged(callback: (user: User | null) => void): () => void {
-    const auth = this.firebaseService.getAuth();
-    return firebaseOnAuthStateChanged(auth, callback);
+    // Agregar callback a la lista
+    this.authStateListeners.push(callback);
+
+    // Ejecutar callback inmediatamente con el estado actual
+    callback(this.currentUser);
+
+    // Retornar función para cancelar suscripción
+    return () => {
+      const index = this.authStateListeners.indexOf(callback);
+      if (index > -1) {
+        this.authStateListeners.splice(index, 1);
+      }
+    };
   }
 
   /**
@@ -225,67 +340,6 @@ class AuthRepository implements IAuthRepository {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
-
-  /**
-   * Maneja errores de Firebase Authentication
-   * Convierte códigos de error técnicos en mensajes amigables
-   * Principio de Seguridad: No exponer detalles técnicos
-   * 
-   * @param error Error de Firebase
-   * @returns Resultado con mensaje de error amigable
-   */
-  private handleAuthError(error: AuthError): AuthResult {
-    let errorMessage: string;
-
-    switch (error.code) {
-      case 'auth/email-already-in-use':
-        errorMessage = 'Este correo electrónico ya está registrado';
-        break;
-      case 'auth/invalid-email':
-        errorMessage = 'El correo electrónico no es válido';
-        break;
-      case 'auth/operation-not-allowed':
-        errorMessage = 'La operación no está permitida. Contacta al administrador';
-        break;
-      case 'auth/weak-password':
-        errorMessage = 'La contraseña es muy débil. Usa al menos 6 caracteres';
-        break;
-      case 'auth/user-disabled':
-        errorMessage = 'Esta cuenta ha sido deshabilitada';
-        break;
-      case 'auth/user-not-found':
-        errorMessage = 'No existe una cuenta con este correo electrónico';
-        break;
-      case 'auth/wrong-password':
-        errorMessage = 'Contraseña incorrecta';
-        break;
-      case 'auth/invalid-credential':
-        // Firebase 9+ usa este código para credenciales inválidas
-        // Puede ser email o password incorrecto, pero por seguridad no especificamos cuál
-        errorMessage = 'Contraseña incorrecta';
-        break;
-      case 'auth/invalid-login-credentials':
-        // Código alternativo en algunas versiones
-        errorMessage = 'Contraseña incorrecta';
-        break;
-      case 'auth/too-many-requests':
-        errorMessage = 'Demasiados intentos fallidos. Intenta más tarde';
-        break;
-      case 'auth/network-request-failed':
-        errorMessage = 'Error de conexión. Verifica tu internet';
-        break;
-      default:
-        errorMessage = 'Ocurrió un error inesperado. Intenta nuevamente';
-        console.error('Error no manejado:', error.code);
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-      errorCode: error.code
-    };
-  }
 }
 
 export default AuthRepository;
-
