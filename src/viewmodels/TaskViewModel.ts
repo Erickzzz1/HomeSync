@@ -291,6 +291,12 @@ class TaskViewModel {
       errors.title = 'El título debe tener al menos 3 caracteres';
     } else if (title.length > 100) {
       errors.title = 'El título no puede exceder 100 caracteres';
+    } else {
+      // Validar que el título no sea solo números
+      const titleWithoutSpaces = title.trim().replace(/\s/g, '');
+      if (/^\d+$/.test(titleWithoutSpaces)) {
+        errors.title = 'El título no puede contener solo números';
+      }
     }
 
     // Validar descripción
@@ -307,6 +313,11 @@ class TaskViewModel {
       errors.assignedTo = 'Debe asignar la tarea a un miembro';
     } else if (assignedTo.length > 50) {
       errors.assignedTo = 'El nombre es demasiado largo';
+    } else {
+      // Validar que el asignado no contenga números
+      if (/\d/.test(assignedTo)) {
+        errors.assignedTo = 'El nombre del asignado no puede contener números';
+      }
     }
 
     // Validar fecha

@@ -21,6 +21,7 @@ import { RouteProp } from '@react-navigation/native';
 import { useAppDispatch } from '../../store/hooks';
 import { updateTask as updateTaskRedux, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
+import TaskViewModel from '../../viewmodels/TaskViewModel';
 import { TaskModel, TaskPriority } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
@@ -59,13 +60,41 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [validationErrors, setValidationErrors] = useState<{
+    title?: string;
+    description?: string;
+    assignedTo?: string;
+    dueDate?: string;
+    priority?: string;
+  }>({});
 
   const taskRepository = new TaskRepository();
+  const taskViewModel = new TaskViewModel();
 
   /**
    * Guarda los cambios
    */
   const handleSave = async () => {
+    // Validar campos antes de proceder
+    const errors = taskViewModel.validateTaskForm(
+      title,
+      description,
+      assignedTo,
+      dueDate,
+      priority
+    );
+
+    // Si hay errores de validación, mostrarlos y no guardar
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      const firstError = Object.values(errors)[0];
+      showError(firstError || 'Por favor, corrige los errores en el formulario');
+      return;
+    }
+
+    // Limpiar errores de validación
+    setValidationErrors({});
+
     setIsSaving(true);
     dispatch(setLoading(true));
 
@@ -102,6 +131,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setDueDate(task.dueDate);
     setSelectedDate(task.dueDate ? new Date(task.dueDate) : null);
     setPriority(task.priority);
+    setValidationErrors({});
     setIsEditing(false);
     setShowDatePicker(false);
   };
@@ -177,12 +207,27 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Título</Text>
           {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              editable={!isSaving}
-            />
+            <>
+              <TextInput
+                style={[
+                  styles.input,
+                  validationErrors.title && styles.inputError
+                ]}
+                value={title}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  // Limpiar error cuando el usuario empiece a escribir
+                  if (validationErrors.title) {
+                    setValidationErrors({ ...validationErrors, title: undefined });
+                  }
+                }}
+                editable={!isSaving}
+                placeholder="Ingresa el título de la tarea"
+              />
+              {validationErrors.title && (
+                <Text style={styles.errorText}>{validationErrors.title}</Text>
+              )}
+            </>
           ) : (
             <Text style={styles.sectionValue}>{task.title}</Text>
           )}
@@ -192,14 +237,30 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Descripción</Text>
           {isEditing ? (
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              editable={!isSaving}
-            />
+            <>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  validationErrors.description && styles.inputError
+                ]}
+                value={description}
+                onChangeText={(text) => {
+                  setDescription(text);
+                  // Limpiar error cuando el usuario empiece a escribir
+                  if (validationErrors.description) {
+                    setValidationErrors({ ...validationErrors, description: undefined });
+                  }
+                }}
+                multiline
+                numberOfLines={4}
+                editable={!isSaving}
+                placeholder="Ingresa la descripción de la tarea"
+              />
+              {validationErrors.description && (
+                <Text style={styles.errorText}>{validationErrors.description}</Text>
+              )}
+            </>
           ) : (
             <Text style={styles.sectionValue}>{task.description}</Text>
           )}
@@ -209,12 +270,27 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Asignado a</Text>
           {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={assignedTo}
-              onChangeText={setAssignedTo}
-              editable={!isSaving}
-            />
+            <>
+              <TextInput
+                style={[
+                  styles.input,
+                  validationErrors.assignedTo && styles.inputError
+                ]}
+                value={assignedTo}
+                onChangeText={(text) => {
+                  setAssignedTo(text);
+                  // Limpiar error cuando el usuario empiece a escribir
+                  if (validationErrors.assignedTo) {
+                    setValidationErrors({ ...validationErrors, assignedTo: undefined });
+                  }
+                }}
+                editable={!isSaving}
+                placeholder="Nombre del miembro asignado"
+              />
+              {validationErrors.assignedTo && (
+                <Text style={styles.errorText}>{validationErrors.assignedTo}</Text>
+              )}
+            </>
           ) : (
             <Text style={styles.sectionValue}>👤 {task.assignedTo}</Text>
           )}
@@ -224,60 +300,78 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Fecha de Vencimiento</Text>
           {isEditing ? (
-            Platform.OS === 'web' ? (
-              // En web, usar un input HTML nativo
-              <View>
-                {/* @ts-ignore - Usar input HTML nativo para web */}
-                <input
-                  type="date"
-              value={dueDate}
-                  onChange={(e: any) => {
-                    const dateValue = e.target.value;
-                    setDueDate(dateValue);
-                    if (dateValue) {
-                      setSelectedDate(new Date(dateValue));
-                    }
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  disabled={isSaving}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    fontSize: '16px',
-                    borderRadius: '8px',
-                    border: '1px solid #E0E0E0',
-                    backgroundColor: '#F5F5F5',
-                    fontFamily: 'inherit',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </View>
-            ) : (
-              // En móvil, usar botón que abre el date picker
-              <>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={openDatePicker}
-                  disabled={isSaving}
-                >
-                  <Text style={styles.datePickerButtonText}>
-                    {dueDate || 'Selecciona una fecha'}
-                  </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
-                </TouchableOpacity>
-                {showDatePicker && DateTimePicker && (
-                  <DateTimePicker
-                    value={selectedDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleDateChange}
-                    minimumDate={new Date()}
-                    locale="es-ES"
+            <>
+              {Platform.OS === 'web' ? (
+                // En web, usar un input HTML nativo
+                <View>
+                  {/* @ts-ignore - Usar input HTML nativo para web */}
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e: any) => {
+                      const dateValue = e.target.value;
+                      setDueDate(dateValue);
+                      if (dateValue) {
+                        setSelectedDate(new Date(dateValue));
+                      }
+                      // Limpiar error cuando el usuario seleccione una fecha
+                      if (validationErrors.dueDate) {
+                        setValidationErrors({ ...validationErrors, dueDate: undefined });
+                      }
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                    disabled={isSaving}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '16px',
+                      borderRadius: '8px',
+                      border: validationErrors.dueDate ? '1px solid #FF3B30' : '1px solid #E0E0E0',
+                      backgroundColor: '#F5F5F5',
+                      fontFamily: 'inherit',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
                   />
-                )}
-              </>
-            )
+                </View>
+              ) : (
+                // En móvil, usar botón que abre el date picker
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.datePickerButton,
+                      validationErrors.dueDate && styles.inputError
+                    ]}
+                    onPress={openDatePicker}
+                    disabled={isSaving}
+                  >
+                    <Text style={styles.datePickerButtonText}>
+                      {dueDate || 'Selecciona una fecha'}
+                    </Text>
+                    <Text style={styles.calendarIcon}>📅</Text>
+                  </TouchableOpacity>
+                  {showDatePicker && DateTimePicker && (
+                    <DateTimePicker
+                      value={selectedDate || new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, date) => {
+                        handleDateChange(event, date);
+                        // Limpiar error cuando el usuario seleccione una fecha
+                        if (validationErrors.dueDate && date) {
+                          setValidationErrors({ ...validationErrors, dueDate: undefined });
+                        }
+                      }}
+                      minimumDate={new Date()}
+                      locale="es-ES"
+                    />
+                  )}
+                </>
+              )}
+              {validationErrors.dueDate && (
+                <Text style={styles.errorText}>{validationErrors.dueDate}</Text>
+              )}
+            </>
           ) : (
             <Text style={styles.sectionValue}>
               📅 {new Date(task.dueDate).toLocaleDateString('es-ES', {
@@ -294,61 +388,84 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Prioridad</Text>
           {isEditing ? (
-            <View style={styles.priorityContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.priorityButton,
-                  priority === 'Alta' && styles.priorityButtonHigh
-                ]}
-                onPress={() => setPriority('Alta')}
-                disabled={isSaving}
-              >
-                <Text
+            <>
+              <View style={styles.priorityContainer}>
+                <TouchableOpacity
                   style={[
-                    styles.priorityButtonText,
-                    priority === 'Alta' && styles.priorityButtonTextActive
+                    styles.priorityButton,
+                    priority === 'Alta' && styles.priorityButtonHigh
                   ]}
+                  onPress={() => {
+                    setPriority('Alta');
+                    // Limpiar error cuando el usuario seleccione una prioridad
+                    if (validationErrors.priority) {
+                      setValidationErrors({ ...validationErrors, priority: undefined });
+                    }
+                  }}
+                  disabled={isSaving}
                 >
-                  Alta
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.priorityButtonText,
+                      priority === 'Alta' && styles.priorityButtonTextActive
+                    ]}
+                  >
+                    Alta
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.priorityButton,
-                  priority === 'Media' && styles.priorityButtonMedium
-                ]}
-                onPress={() => setPriority('Media')}
-                disabled={isSaving}
-              >
-                <Text
+                <TouchableOpacity
                   style={[
-                    styles.priorityButtonText,
-                    priority === 'Media' && styles.priorityButtonTextActive
+                    styles.priorityButton,
+                    priority === 'Media' && styles.priorityButtonMedium
                   ]}
+                  onPress={() => {
+                    setPriority('Media');
+                    // Limpiar error cuando el usuario seleccione una prioridad
+                    if (validationErrors.priority) {
+                      setValidationErrors({ ...validationErrors, priority: undefined });
+                    }
+                  }}
+                  disabled={isSaving}
                 >
-                  Media
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.priorityButtonText,
+                      priority === 'Media' && styles.priorityButtonTextActive
+                    ]}
+                  >
+                    Media
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.priorityButton,
-                  priority === 'Baja' && styles.priorityButtonLow
-                ]}
-                onPress={() => setPriority('Baja')}
-                disabled={isSaving}
-              >
-                <Text
+                <TouchableOpacity
                   style={[
-                    styles.priorityButtonText,
-                    priority === 'Baja' && styles.priorityButtonTextActive
+                    styles.priorityButton,
+                    priority === 'Baja' && styles.priorityButtonLow
                   ]}
+                  onPress={() => {
+                    setPriority('Baja');
+                    // Limpiar error cuando el usuario seleccione una prioridad
+                    if (validationErrors.priority) {
+                      setValidationErrors({ ...validationErrors, priority: undefined });
+                    }
+                  }}
+                  disabled={isSaving}
                 >
-                  Baja
-                </Text>
-              </TouchableOpacity>
-            </View>
+                  <Text
+                    style={[
+                      styles.priorityButtonText,
+                      priority === 'Baja' && styles.priorityButtonTextActive
+                    ]}
+                  >
+                    Baja
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {validationErrors.priority && (
+                <Text style={styles.errorText}>{validationErrors.priority}</Text>
+              )}
+            </>
           ) : (
             <View
               style={[
@@ -589,6 +706,16 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+    borderWidth: 2
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4
   }
 });
 
