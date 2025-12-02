@@ -1,0 +1,16 @@
+# Configuración para Render.com
+# Este archivo ayuda a Render a entender cómo desplegar el backend
+
+services:
+  - type: web
+    name: homesync-api
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Agrega tus variables de Firebase aquí o en el dashboard de Render
+      # - key: FIREBASE_API_KEY
+      #   value: tu_valor_aqui
+
