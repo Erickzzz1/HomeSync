@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "version": ">= 5.2.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "20.11.0"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "API_BASE_URL": "https://homesync-umzq.onrender.com"
+      },
+      "node": "20.11.0"
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "API_BASE_URL": "https://homesync-umzq.onrender.com"
+      },
+      "node": "20.11.0"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+
