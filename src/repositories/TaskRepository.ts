@@ -53,10 +53,11 @@ class TaskRepository implements ITaskRepository {
       // Enviar petición a la API
       const response = await ApiService.post<ApiTaskResponse>('/api/tasks', {
         title: taskData.title.trim(),
-        description: taskData.description.trim(),
+        description: taskData.description.trim() || '',
         assignedTo: taskData.assignedTo.trim(),
         dueDate: taskData.dueDate,
-        priority: taskData.priority
+        priority: taskData.priority,
+        reminderTime: taskData.reminderTime || undefined
       });
 
       if (!response.success) {

@@ -117,11 +117,25 @@ class AuthViewModel {
       error: null
     });
 
-    // Ejecutar registro
+    // HU-02: Normalización de datos antes de enviar
+    // Email: toLowerCase y trim
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Nombre: trim y reemplazar múltiples espacios por uno solo
+    let normalizedDisplayName: string | undefined = undefined;
+    if (displayName) {
+      let normalized = displayName.trim();
+      normalized = normalized.replace(/\s+/g, ' '); // Reemplazar múltiples espacios por uno solo
+      if (normalized.length > 0) {
+        normalizedDisplayName = normalized;
+      }
+    }
+
+    // Ejecutar registro con datos normalizados
     const signUpData: SignUpData = {
-      email: email.trim(),
+      email: normalizedEmail,
       password,
-      displayName: displayName?.trim()
+      displayName: normalizedDisplayName
     };
 
     const result = await this.authRepository.signUp(signUpData);
@@ -251,8 +265,8 @@ class AuthViewModel {
     // Validar contraseña
     if (!password) {
       errors.password = 'La contraseña es requerida';
-    } else if (password.length < 6) {
-      errors.password = 'La contraseña debe tener al menos 6 caracteres';
+    } else if (password.length < 8) {
+      errors.password = 'La contraseña debe tener al menos 8 caracteres';
     } else if (password.length > 128) {
       errors.password = 'La contraseña es demasiado larga';
     } else if (!this.isStrongPassword(password)) {
@@ -281,19 +295,27 @@ class AuthViewModel {
   /**
    * Valida el formulario de inicio de sesión
    * 
+   * Requisitos de seguridad:
+   * - Email: formato válido
+   * - Contraseña: mínimo 8 caracteres
+   * 
    * @returns Objeto con errores de validación
    */
   validateSignInForm(email: string, password: string): ValidationErrors {
     const errors: ValidationErrors = {};
 
+    // Validar email
     if (!email || !email.trim()) {
       errors.email = 'El correo electrónico es requerido';
     } else if (!this.isValidEmail(email)) {
       errors.email = 'El formato del correo electrónico no es válido';
     }
 
+    // Validar contraseña
     if (!password) {
       errors.password = 'La contraseña es requerida';
+    } else if (password.length < 8) {
+      errors.password = 'La contraseña debe tener al menos 8 caracteres';
     }
 
     return errors;

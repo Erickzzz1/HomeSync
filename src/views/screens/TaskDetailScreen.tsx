@@ -4,7 +4,7 @@
  * Muestra los detalles completos de una tarea y permite editarla
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,9 +18,10 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { useAppDispatch } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateTask as updateTaskRedux, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
+import FamilyRepository from '../../repositories/FamilyRepository';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
 import { TaskModel, TaskPriority } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
@@ -46,8 +47,10 @@ interface Props {
 
 const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { task } = route.params;
+  const { user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
+  const [userNameMap, setUserNameMap] = useState<Map<string, string>>(new Map());
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -70,6 +73,57 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const taskRepository = new TaskRepository();
   const taskViewModel = new TaskViewModel();
+
+  /**
+   * Carga el mapa de nombres de usuarios (familiares + usuario actual)
+   */
+  const loadUserNameMap = useCallback(async () => {
+    if (!user?.uid) return;
+
+    const nameMap = new Map<string, string>();
+    
+    // Agregar el usuario actual al mapa
+    nameMap.set(user.uid, user.displayName || user.email || 'Yo');
+    
+    // Cargar familiares y agregarlos al mapa
+    try {
+      const familyRepository = new FamilyRepository();
+      const familyResult = await familyRepository.getFamilyMembers();
+      if (familyResult.success && familyResult.familyMembers) {
+        familyResult.familyMembers.forEach((member) => {
+          nameMap.set(
+            member.uid,
+            member.displayName || member.email || 'Sin nombre'
+          );
+        });
+      }
+    } catch (error) {
+      console.error('Error al cargar familiares para mapeo de nombres:', error);
+    }
+    
+    setUserNameMap(nameMap);
+  }, [user?.uid, user?.displayName, user?.email]);
+
+  /**
+   * Obtiene el nombre del usuario asignado a partir de su UID
+   */
+  const getAssignedUserName = (assignedToUid: string): string => {
+    if (!assignedToUid) return 'Sin asignar';
+    
+    // Si es el usuario actual
+    if (assignedToUid === user?.uid) {
+      return user.displayName || user.email || 'Yo';
+    }
+    
+    // Buscar en el mapa de nombres
+    return userNameMap.get(assignedToUid) || assignedToUid;
+  };
+
+  useEffect(() => {
+    if (user?.uid) {
+      loadUserNameMap();
+    }
+  }, [user?.uid, loadUserNameMap]);
 
   /**
    * Guarda los cambios
@@ -292,7 +346,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
             </>
           ) : (
-            <Text style={styles.sectionValue}>👤 {task.assignedTo}</Text>
+            <Text style={styles.sectionValue}>👤 {getAssignedUserName(task.assignedTo)}</Text>
           )}
         </View>
 

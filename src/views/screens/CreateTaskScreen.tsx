@@ -4,7 +4,7 @@
  * Formulario con validaciones para crear tareas del hogar
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,15 +15,19 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { addTask, setLoading } from '../../store/slices/taskSlice';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
+import FamilyRepository from '../../repositories/FamilyRepository';
+import { FamilyMember } from '../../repositories/interfaces/IFamilyRepository';
 import { TaskPriority } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import TaskRepository from '../../repositories/TaskRepository';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -50,13 +54,94 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [assignedToId, setAssignedToId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [reminderTime, setReminderTime] = useState('');
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>('Media');
   const [errors, setErrors] = useState<any>({});
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [isLoadingFamily, setIsLoadingFamily] = useState(true);
 
   const taskViewModel = new TaskViewModel();
+  const familyRepository = new FamilyRepository();
+  const taskRepository = new TaskRepository();
+
+  /**
+   * Carga los familiares al montar
+   */
+  useEffect(() => {
+    loadFamilyMembers();
+  }, []);
+
+  /**
+   * Carga la lista de familiares
+   */
+  const loadFamilyMembers = async () => {
+    setIsLoadingFamily(true);
+    try {
+      const result = await familyRepository.getFamilyMembers();
+      if (result.success && result.familyMembers) {
+        setFamilyMembers(result.familyMembers);
+      }
+    } catch (error) {
+      console.error('Error al cargar familiares:', error);
+    } finally {
+      setIsLoadingFamily(false);
+    }
+  };
+
+  /**
+   * Sanitiza el título removiendo HTML y scripts
+   * Permite espacios y caracteres normales
+   */
+  const sanitizeTitle = (text: string): string => {
+    // Remover etiquetas HTML
+    let sanitized = text.replace(/<[^>]*>/g, '');
+    // Remover scripts y eventos
+    sanitized = sanitized.replace(/javascript:/gi, '');
+    sanitized = sanitized.replace(/on\w+=/gi, '');
+    // Solo remover caracteres peligrosos < y >, pero mantener espacios y otros caracteres normales
+    sanitized = sanitized.replace(/[<>]/g, '');
+    // No hacer trim aquí para permitir espacios al inicio/final mientras escribe
+    return sanitized;
+  };
+
+  /**
+   * Normaliza una fecha a medianoche para comparación
+   */
+  const normalizeDateToMidnight = (dateString: string): Date => {
+    const date = new Date(dateString);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  /**
+   * Verifica si hay una tarea duplicada
+   */
+  const checkDuplicateTask = async (title: string, dueDate: string): Promise<boolean> => {
+    try {
+      if (!user?.uid) return false;
+      
+      const result = await taskRepository.getTasks(user.uid);
+      if (result.success && result.tasks) {
+        const normalizedDueDate = normalizeDateToMidnight(dueDate);
+        const duplicate = result.tasks.find(task => {
+          const taskDate = normalizeDateToMidnight(task.dueDate);
+          return task.title.toLowerCase().trim() === title.toLowerCase().trim() &&
+                 taskDate.getTime() === normalizedDueDate.getTime();
+        });
+        return !!duplicate;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error al verificar duplicados:', error);
+      return false;
+    }
+  };
 
   /**
    * Crea la tarea
@@ -70,9 +155,43 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     // Limpiar errores previos
     setErrors({});
 
+    // Sanitizar título
+    const sanitizedTitle = sanitizeTitle(title);
+    if (!sanitizedTitle) {
+      setErrors({ title: 'El título es requerido' });
+      return;
+    }
+
+    // Validar que el asignado sea válido (puede ser el usuario mismo o un familiar)
+    if (assignedToId) {
+      // Permitir asignarse a sí mismo
+      if (assignedToId === user.uid) {
+        // Está bien, se asignó a sí mismo
+      } else {
+        // Si no es el usuario mismo, debe ser un familiar
+        const memberExists = familyMembers.find(m => m.uid === assignedToId);
+        if (!memberExists) {
+          showError('El miembro seleccionado ya no está en tu familia. Por favor, actualiza la selección.');
+          await loadFamilyMembers();
+          return;
+        }
+      }
+    }
+
+    // Validar fecha no pasada (normalizada a medianoche)
+    if (dueDate) {
+      const selectedDateNormalized = normalizeDateToMidnight(dueDate);
+      const todayNormalized = normalizeDateToMidnight(new Date().toISOString().split('T')[0]);
+      
+      if (selectedDateNormalized < todayNormalized) {
+        setErrors({ dueDate: 'La fecha no puede ser anterior a hoy' });
+        return;
+      }
+    }
+
     // Validar
     const validationErrors = taskViewModel.validateTaskForm(
-      title,
+      sanitizedTitle,
       description,
       assignedTo,
       dueDate,
@@ -84,24 +203,55 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    // Verificar duplicados
+    const isDuplicate = await checkDuplicateTask(sanitizedTitle, dueDate);
+    if (isDuplicate) {
+      Alert.alert(
+        'Tarea Duplicada',
+        'Ya existe una tarea con el mismo título y fecha. ¿Deseas continuar de todas formas?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Continuar',
+            onPress: () => createTask(sanitizedTitle)
+          }
+        ]
+      );
+      return;
+    }
+
+    await createTask(sanitizedTitle);
+  };
+
+  /**
+   * Ejecuta la creación de la tarea
+   */
+  const createTask = async (sanitizedTitle: string) => {
+    if (!user?.uid) return;
+
     dispatch(setLoading(true));
 
+    // Usar assignedToId (UID) en lugar de assignedTo (nombre) para la asignación
+    const assignedUserId = assignedToId || user.uid; // Si no hay asignado, asignar al usuario actual
+    
+    // Normalizar título (trim y espacios múltiples)
+    const finalTitle = sanitizedTitle.trim().replace(/\s+/g, ' ');
+    
     const result = await taskViewModel.createTask(
-      title,
-      description,
-      assignedTo,
+      finalTitle,
+      description.trim() || '', // Descripción opcional, enviar string vacío si no hay
+      assignedUserId, // Enviar UID en lugar del nombre
       dueDate,
       priority,
-      user.uid
+      user.uid,
+      reminderTime || undefined // Hora del recordatorio (opcional)
     );
 
     dispatch(setLoading(false));
 
     if (result.success && result.task) {
       dispatch(addTask(result.task));
-      // Mostrar alerta de éxito con paloma verde animada
       showSuccess('Tarea creada correctamente', 'Éxito', () => {
-        // Redirigir a la lista de tareas
         hideAlert();
         navigation.goBack();
       }, true, 2000);
@@ -131,6 +281,16 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     if (event.type === 'set' && date) {
+      // Validar que no sea fecha pasada
+      const selectedDateNormalized = normalizeDateToMidnight(formatDateForDisplay(date));
+      const todayNormalized = normalizeDateToMidnight(new Date().toISOString().split('T')[0]);
+      
+      if (selectedDateNormalized < todayNormalized) {
+        setErrors({ ...errors, dueDate: 'La fecha no puede ser anterior a hoy' });
+        setShowDatePicker(false);
+        return;
+      }
+      
       setSelectedDate(date);
       const formattedDate = formatDateForDisplay(date);
       setDueDate(formattedDate);
@@ -173,9 +333,12 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
               placeholderTextColor="#999"
               value={title}
               onChangeText={(text) => {
-                setTitle(text);
+                // Sanitizar mientras el usuario escribe
+                const sanitized = sanitizeTitle(text);
+                setTitle(sanitized);
                 if (errors.title) setErrors({ ...errors, title: undefined });
               }}
+              // Permitir espacios múltiples mientras escribe, se normalizarán al guardar
               editable={!isLoading}
             />
             {errors.title && (
@@ -185,7 +348,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Descripción */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Descripción *</Text>
+            <Text style={styles.label}>Descripción</Text>
             <TextInput
               style={[
                 styles.input,
@@ -209,23 +372,85 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </View>
 
-          {/* Asignado a */}
+          {/* Asignado a - Dropdown de familiares */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Asignado a *</Text>
-            <TextInput
-              style={[styles.input, errors.assignedTo && styles.inputError]}
-              placeholder="Ej: Juan, María, Papá..."
-              placeholderTextColor="#999"
-              value={assignedTo}
-              onChangeText={(text) => {
-                setAssignedTo(text);
-                if (errors.assignedTo)
-                  setErrors({ ...errors, assignedTo: undefined });
-              }}
-              editable={!isLoading}
-            />
-            {errors.assignedTo && (
-              <Text style={styles.errorText}>{errors.assignedTo}</Text>
+            {isLoadingFamily ? (
+              <ActivityIndicator size="small" color="#4A90E2" style={styles.loader} />
+            ) : familyMembers.length === 0 ? (
+              <View style={styles.emptyFamilyContainer}>
+                <Text style={styles.emptyFamilyText}>
+                  No tienes miembros en tu familia
+                </Text>
+                <TouchableOpacity
+                  style={styles.addFamilyButton}
+                  onPress={() => navigation.navigate('Family')}
+                >
+                  <Text style={styles.addFamilyButtonText}>Ir a Mi Familia</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.dropdown, errors.assignedTo && styles.inputError]}
+                  onPress={() => setShowMemberDropdown(!showMemberDropdown)}
+                  disabled={isLoading}
+                >
+                  <Text style={[styles.dropdownText, !assignedTo && styles.placeholder]}>
+                    {assignedTo || 'Selecciona un miembro de la familia'}
+                  </Text>
+                  <Text style={styles.dropdownArrow}>
+                    {showMemberDropdown ? '▲' : '▼'}
+                  </Text>
+                </TouchableOpacity>
+                {showMemberDropdown && (
+                  <View style={styles.dropdownList}>
+                    {/* Opción "Yo mismo" */}
+                    <TouchableOpacity
+                      style={[
+                        styles.dropdownItem,
+                        assignedToId === user?.uid && styles.dropdownItemSelected
+                      ]}
+                      onPress={() => {
+                        setAssignedTo(user?.displayName || user?.email || 'Yo mismo');
+                        setAssignedToId(user?.uid || '');
+                        setShowMemberDropdown(false);
+                        if (errors.assignedTo) {
+                          setErrors({ ...errors, assignedTo: undefined });
+                        }
+                      }}
+                    >
+                      <Text style={styles.dropdownItemText}>
+                        👤 Yo mismo
+                      </Text>
+                    </TouchableOpacity>
+                    {familyMembers.map((member) => (
+                      <TouchableOpacity
+                        key={member.uid}
+                        style={[
+                          styles.dropdownItem,
+                          assignedToId === member.uid && styles.dropdownItemSelected
+                        ]}
+                        onPress={() => {
+                          setAssignedTo(member.displayName || member.email || 'Sin nombre');
+                          setAssignedToId(member.uid);
+                          setShowMemberDropdown(false);
+                          if (errors.assignedTo) {
+                            setErrors({ ...errors, assignedTo: undefined });
+                          }
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>
+                          {member.displayName || member.email || 'Sin nombre'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {errors.assignedTo && (
+                  <Text style={styles.errorText}>{errors.assignedTo}</Text>
+                )}
+              </>
             )}
           </View>
 
@@ -241,9 +466,21 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                   value={dueDate}
                   onChange={(e: any) => {
                     const dateValue = e.target.value;
-                    setDueDate(dateValue);
+                    // Validar que no sea fecha pasada
                     if (dateValue) {
+                      const selectedDateNormalized = normalizeDateToMidnight(dateValue);
+                      const todayNormalized = normalizeDateToMidnight(new Date().toISOString().split('T')[0]);
+                      
+                      if (selectedDateNormalized < todayNormalized) {
+                        setErrors({ ...errors, dueDate: 'La fecha no puede ser anterior a hoy' });
+                        return;
+                      }
+                      
+                      setDueDate(dateValue);
                       setSelectedDate(new Date(dateValue));
+                    } else {
+                      setDueDate('');
+                      setSelectedDate(null);
                     }
                     if (errors.dueDate) {
                       setErrors({ ...errors, dueDate: undefined });
@@ -308,9 +545,78 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </View>
 
+          {/* Hora del Recordatorio */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Hora del Recordatorio</Text>
+            {Platform.OS === 'web' ? (
+              <View>
+                {/* @ts-ignore - Usar input HTML nativo para web */}
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e: any) => {
+                    setReminderTime(e.target.value);
+                  }}
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    fontSize: '16px',
+                    borderRadius: '12px',
+                    border: '2px solid #E0E0E0',
+                    backgroundColor: '#fff',
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Text style={styles.helperText}>
+                  Selecciona la hora para recibir la notificación
+                </Text>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowTimePicker(true)}
+                  disabled={isLoading}
+                >
+                  <Text
+                    style={[
+                      styles.datePickerButtonText,
+                      !reminderTime && styles.datePickerPlaceholder
+                    ]}
+                  >
+                    {reminderTime || 'Selecciona una hora (opcional)'}
+                  </Text>
+                  <Text style={styles.calendarIcon}>🕐</Text>
+                </TouchableOpacity>
+                {showTimePicker && DateTimePicker && (
+                  <DateTimePicker
+                    value={reminderTime ? new Date(`2000-01-01T${reminderTime}`) : new Date()}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event: any, selectedTime?: Date) => {
+                      setShowTimePicker(false);
+                      if (selectedTime) {
+                        const hours = selectedTime.getHours().toString().padStart(2, '0');
+                        const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+                        setReminderTime(`${hours}:${minutes}`);
+                      }
+                    }}
+                    locale="es-ES"
+                  />
+                )}
+                <Text style={styles.helperText}>
+                  Toca el campo para seleccionar una hora (opcional)
+                </Text>
+              </>
+            )}
+          </View>
+
           {/* Prioridad */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Prioridad *</Text>
+            <Text style={styles.label}>Prioridad * (Por defecto: Media)</Text>
             <View style={styles.priorityContainer}>
               <TouchableOpacity
                 style={[
@@ -553,6 +859,82 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6
+  },
+  loader: {
+    marginVertical: 10
+  },
+  emptyFamilyContainer: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed'
+  },
+  emptyFamilyText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    textAlign: 'center'
+  },
+  addFamilyButton: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8
+  },
+  addFamilyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  dropdown: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  placeholder: {
+    color: '#999'
+  },
+  dropdownArrow: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8
+  },
+  dropdownList: {
+    marginTop: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    maxHeight: 200,
+    overflow: 'hidden'
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5'
+  },
+  dropdownItemSelected: {
+    backgroundColor: '#F0F7FF'
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#333'
   }
 });
 

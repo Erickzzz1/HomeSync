@@ -49,19 +49,57 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const authViewModel = new AuthViewModel();
 
   /**
+   * Normaliza el nombre del usuario
+   * Elimina espacios al inicio/final y reemplaza múltiples espacios internos por uno solo
+   * Ejemplo: "Juan   Perez" -> "Juan Perez"
+   */
+  const normalizeDisplayName = (name: string): string => {
+    if (!name) return '';
+    // Trim espacios al inicio y final
+    let normalized = name.trim();
+    // Reemplazar múltiples espacios por uno solo usando regex
+    normalized = normalized.replace(/\s+/g, ' ');
+    return normalized;
+  };
+
+  /**
+   * Extrae solo el primer nombre del nombre completo
+   * Ejemplo: "Juan Perez" -> "Juan", "María José" -> "María"
+   */
+  const getFirstName = (fullName: string): string => {
+    if (!fullName) return '';
+    const normalized = normalizeDisplayName(fullName);
+    // Obtener el primer nombre (antes del primer espacio)
+    const firstName = normalized.split(' ')[0];
+    return firstName;
+  };
+
+  /**
+   * Normaliza el email
+   * Convierte a minúsculas y elimina espacios
+   */
+  const normalizeEmail = (email: string): string => {
+    return email.trim().toLowerCase();
+  };
+
+  /**
    * Maneja el registro de usuario
-   * Aplica validaciones antes de enviar a Firebase
+   * HU-02: Aplica normalización de datos y validaciones antes de enviar
    */
   const handleRegister = async () => {
     // Limpiar errores previos
     setErrors({});
 
-    // Validar campos usando el ViewModel
+    // Normalizar datos según HU-02
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedDisplayName = displayName ? normalizeDisplayName(displayName) : '';
+
+    // Validar campos usando el ViewModel (con datos normalizados)
     const validationErrors = authViewModel.validateSignUpForm(
-      email,
+      normalizedEmail,
       password,
       confirmPassword,
-      displayName
+      normalizedDisplayName
     );
 
     if (Object.keys(validationErrors).length > 0) {
@@ -73,17 +111,25 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     dispatch(setLoading(true));
 
     try {
+      // Enviar datos normalizados al ViewModel
       const result = await authViewModel.signUp(
-        email,
+        normalizedEmail,
         password,
         confirmPassword,
-        displayName
+        normalizedDisplayName || undefined // Solo enviar si hay nombre
       );
 
       if (result.success && result.user) {
         dispatch(setUser(result.user));
+        
+        // HU-02: Mensaje de bienvenida condicional e inclusivo
+        // Mostrar solo el primer nombre y usar lenguaje inclusivo
+        const welcomeMessage = normalizedDisplayName 
+          ? `¡Bienvenid@, ${getFirstName(normalizedDisplayName)}!`
+          : '¡Te damos la bienvenida!';
+        
         showSuccess(
-          `Bienvenido ${displayName || 'a HomeSync'}`,
+          welcomeMessage,
           '¡Registro Exitoso!',
           () => {
             hideAlert();
@@ -94,11 +140,20 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           2000
         );
       } else {
-        showError(result.error || 'No se pudo completar el registro', 'Error en el Registro');
+        // El error ya viene normalizado del AuthRepository
+        showError(result.error || 'Ocurrió un problema. Intenta más tarde', 'Error en el Registro');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error inesperado:', error);
-      showError('Ocurrió un error inesperado al registrar');
+      
+      // Detectar errores de red
+      if (error.message?.toLowerCase().includes('network') || 
+          error.message?.toLowerCase().includes('fetch') ||
+          error.message?.toLowerCase().includes('internet')) {
+        showError('Error de conexión. Verifica tu internet', 'Error de Conexión');
+      } else {
+        showError('Ocurrió un problema. Intenta más tarde', 'Error en el Registro');
+      }
     } finally {
       setIsLoading(false);
       dispatch(setLoading(false));
@@ -166,7 +221,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 placeholderTextColor="#999"
                 value={email}
                 onChangeText={(text) => {
-                  setEmail(text);
+                  // Normalizar email mientras el usuario escribe (mejor UX)
+                  // Convertir a minúsculas automáticamente
+                  const normalized = text.toLowerCase();
+                  setEmail(normalized);
                   if (errors.email) setErrors({ ...errors, email: undefined });
                 }}
                 keyboardType="email-address"
@@ -184,7 +242,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.label}>Contraseña *</Text>
               <TextInput
                 style={[styles.input, errors.password ? styles.inputError : null]}
-                placeholder="Mínimo 6 caracteres (letras y números)"
+                placeholder="Mínimo 8 caracteres (letras y números)"
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={(text) => {

@@ -1,8 +1,15 @@
 /**
  * LoginScreen - Vista de inicio de sesión
  * 
- * Permite a los usuarios autenticarse con email y contraseña.
- * Implementa validaciones de entrada y manejo de errores.
+ * HU-01: Inicio de sesión con correo y contraseña
+ * 
+ * Implementa:
+ * - Validaciones de campos obligatorios
+ * - Validación de formato de email (regex)
+ * - Validación de contraseña (mínimo 8 caracteres)
+ * - Manejo seguro de errores (nunca revela si el email existe)
+ * - Persistencia de sesión con expo-secure-store
+ * - Diferenciación entre errores de red y servidor
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,11 +26,12 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
-import { useAppDispatch } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setUser, setLoading, setError } from '../../store/slices/authSlice';
 import AuthViewModel from '../../viewmodels/AuthViewModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import ApiService from '../../services/ApiService';
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -40,15 +48,47 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
   const authViewModel = new AuthViewModel();
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
+
+  /**
+   * Verifica si existe una sesión persistente al montar el componente
+   */
+  useEffect(() => {
+    const checkPersistedSession = async () => {
+      try {
+        const token = await ApiService.getToken();
+        if (token) {
+          // Si hay token, el AuthRepository ya debería haber verificado la sesión
+          // Solo verificamos que el estado de Redux esté sincronizado
+          dispatch(setLoading(false));
+        }
+      } catch (error) {
+        console.error('Error al verificar sesión persistente:', error);
+      }
+    };
+
+    checkPersistedSession();
+  }, []);
+
+  /**
+   * Redirige automáticamente si el usuario ya está autenticado
+   */
+  useEffect(() => {
+    if (isAuthenticated) {
+      // La navegación se manejará automáticamente por el RootNavigator
+      // basado en el estado isAuthenticated
+    }
+  }, [isAuthenticated]);
 
   /**
    * Maneja el inicio de sesión
+   * Implementa validaciones según HU-01
    */
   const handleLogin = async () => {
     // Limpiar errores previos
     setErrors({});
 
-    // Validar campos
+    // Validar campos obligatorios
     const validationErrors = authViewModel.validateSignInForm(email, password);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -66,7 +106,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         dispatch(setUser(result.user));
         showSuccess(
           'Has iniciado sesión correctamente',
-          '¡Bienvenido!',
+          '¡Bienvenid@!',
           () => {
             hideAlert();
             // La navegación automática al AppStack ocurrirá cuando isAuthenticated cambie
@@ -76,36 +116,36 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           2000
         );
       } else {
-        const errorMessage = result.error || 'Error al iniciar sesión';
-        dispatch(setError(errorMessage));
+        // Manejo de errores según HU-01
+        dispatch(setError(result.error || 'No se pudo completar la solicitud. Inténtalo más tarde'));
         
-        // Mostrar error en el campo correspondiente
-        if (result.errorCode === 'auth/wrong-password' || 
-            result.errorCode === 'auth/invalid-credential' ||
-            result.errorCode === 'auth/invalid-login-credentials' ||
-            errorMessage.toLowerCase().includes('contraseña') ||
-            errorMessage.toLowerCase().includes('password')) {
-          // Error de contraseña incorrecta - mostrar en campo de contraseña
-          setErrors({ password: 'Contraseña incorrecta' });
-          showError('Contraseña incorrecta');
-        } else if (result.errorCode === 'auth/user-not-found' ||
-                   errorMessage.toLowerCase().includes('no existe') ||
-                   errorMessage.toLowerCase().includes('not found')) {
-          // Error de email no encontrado - mostrar en campo de email
-          setErrors({ email: 'No existe una cuenta con este correo electrónico' });
+        // Según HU-01: Todos los errores de credenciales muestran mensaje genérico
+        if (result.errorCode === 'INVALID_CREDENTIALS') {
+          // Error de credenciales: mensaje genérico (nunca revelar si el email existe)
+          showError('Correo o contraseña incorrectos');
+        } else if (result.errorCode === 'NETWORK_ERROR') {
+          // Error de red
+          showError('No hay conexión a internet');
+        } else if (result.errorCode === 'VALIDATION_ERROR') {
+          // Errores de validación ya se mostraron en los campos
+          // No mostrar alert adicional
         } else {
-          // Otros errores
-          showError(errorMessage);
-          // Si el mensaje menciona contraseña, también mostrarlo en el campo
-          if (errorMessage.toLowerCase().includes('contraseña') || 
-              errorMessage.toLowerCase().includes('password')) {
-            setErrors({ password: errorMessage });
-          }
+          // Otros errores del servidor
+          showError('No se pudo completar la solicitud. Inténtalo más tarde');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error inesperado:', error);
-      showError('Ocurrió un error inesperado');
+      
+      // Detectar errores de red
+      if (error.message?.toLowerCase().includes('network') || 
+          error.message?.toLowerCase().includes('fetch') ||
+          error.message?.toLowerCase().includes('internet')) {
+        showError('No hay conexión a internet');
+      } else {
+        showError('No se pudo completar la solicitud. Inténtalo más tarde');
+      }
+      
       dispatch(setError('Error inesperado'));
     } finally {
       setIsLoading(false);

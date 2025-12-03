@@ -22,9 +22,14 @@ export interface TaskModel {
   title: string;
 
   /**
-   * Descripción detallada de la tarea
+   * Descripción detallada de la tarea (opcional)
    */
   description: string;
+
+  /**
+   * Hora del recordatorio (formato HH:MM, opcional)
+   */
+  reminderTime?: string;
 
   /**
    * Miembro familiar asignado a la tarea
@@ -35,6 +40,11 @@ export interface TaskModel {
    * Fecha de vencimiento (formato ISO string)
    */
   dueDate: string;
+
+  /**
+   * Hora del recordatorio (formato HH:MM, opcional)
+   */
+  reminderTime?: string;
 
   /**
    * Nivel de prioridad de la tarea
@@ -73,6 +83,7 @@ export interface CreateTaskData {
   dueDate: string;
   priority: TaskPriority;
   createdBy: string;
+  reminderTime?: string;
 }
 
 /**

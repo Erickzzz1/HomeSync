@@ -87,7 +87,8 @@ class TaskViewModel {
     assignedTo: string,
     dueDate: string,
     priority: TaskPriority,
-    createdBy: string
+    createdBy: string,
+    reminderTime?: string
   ): Promise<TaskOperationResult> {
     // Validar campos antes de proceder
     const validationErrors = this.validateTaskForm(
@@ -121,11 +122,12 @@ class TaskViewModel {
     // Preparar datos
     const taskData: CreateTaskData = {
       title: title.trim(),
-      description: description.trim(),
+      description: description.trim() || '', // Descripción opcional
       assignedTo: assignedTo.trim(),
       dueDate,
       priority,
-      createdBy
+      createdBy,
+      reminderTime: reminderTime || undefined // Hora del recordatorio opcional
     };
 
     // Ejecutar creación
@@ -299,26 +301,21 @@ class TaskViewModel {
       }
     }
 
-    // Validar descripción
-    if (!description || !description.trim()) {
-      errors.description = 'La descripción es requerida';
-    } else if (description.trim().length < 5) {
-      errors.description = 'La descripción debe tener al menos 5 caracteres';
-    } else if (description.length > 500) {
-      errors.description = 'La descripción no puede exceder 500 caracteres';
-    }
-
-    // Validar asignado
-    if (!assignedTo || !assignedTo.trim()) {
-      errors.assignedTo = 'Debe asignar la tarea a un miembro';
-    } else if (assignedTo.length > 50) {
-      errors.assignedTo = 'El nombre es demasiado largo';
-    } else {
-      // Validar que el asignado no contenga números
-      if (/\d/.test(assignedTo)) {
-        errors.assignedTo = 'El nombre del asignado no puede contener números';
+    // Validar descripción (opcional)
+    if (description && description.trim()) {
+      if (description.trim().length < 5) {
+        errors.description = 'La descripción debe tener al menos 5 caracteres';
+      } else if (description.length > 500) {
+        errors.description = 'La descripción no puede exceder 500 caracteres';
       }
     }
+    // Si está vacía, está bien (es opcional)
+
+    // Validar asignado (ahora es un UID, no un nombre)
+    if (!assignedTo || !assignedTo.trim()) {
+      errors.assignedTo = 'Debe asignar la tarea';
+    }
+    // Ya no validamos formato de nombre porque ahora es un UID
 
     // Validar fecha
     if (!dueDate) {

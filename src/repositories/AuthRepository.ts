@@ -118,18 +118,52 @@ class AuthRepository implements IAuthRepository {
         };
       }
 
-      // Enviar petición a la API
-      const response = await ApiService.post<ApiAuthResponse>('/api/auth/signup', {
+      // HU-02: Solo enviar displayName si existe y no está vacío
+      const requestData: any = {
         email: data.email,
-        password: data.password,
-        displayName: data.displayName
-      });
+        password: data.password
+      };
+      
+      // Solo agregar displayName si existe y no está vacío
+      if (data.displayName && data.displayName.trim().length > 0) {
+        requestData.displayName = data.displayName;
+      }
+
+      // Enviar petición a la API
+      const response = await ApiService.post<ApiAuthResponse>('/api/auth/signup', requestData);
 
       if (!response.success) {
+        // HU-02: Manejo específico de errores
+        const errorCode = response.errorCode || '';
+        
+        // Error de email ya registrado
+        if (errorCode === 'auth/email-already-in-use' || 
+            errorCode === 'EMAIL_ALREADY_EXISTS' ||
+            response.error?.toLowerCase().includes('ya está registrado') ||
+            response.error?.toLowerCase().includes('already exists')) {
+          return {
+            success: false,
+            error: 'Este correo electrónico ya está registrado',
+            errorCode: 'EMAIL_ALREADY_IN_USE'
+          };
+        }
+        
+        // Error de red
+        if (errorCode === 'NETWORK_ERROR' || 
+            response.error?.toLowerCase().includes('network') ||
+            response.error?.toLowerCase().includes('conexión')) {
+          return {
+            success: false,
+            error: 'Error de conexión. Verifica tu internet',
+            errorCode: 'NETWORK_ERROR'
+          };
+        }
+        
+        // Otros errores
         return {
           success: false,
-          error: response.error || 'Error al registrar usuario',
-          errorCode: response.errorCode
+          error: 'Ocurrió un problema. Intenta más tarde',
+          errorCode: response.errorCode || 'SIGNUP_ERROR'
         };
       }
 
@@ -153,9 +187,38 @@ class AuthRepository implements IAuthRepository {
       };
     } catch (error: any) {
       console.error('Error en registro:', error);
+      
+      // HU-02: Manejo específico de errores en catch
+      const errorMessage = error.message || '';
+      
+      // Error de email ya registrado
+      if (errorMessage.includes('email-already-in-use') ||
+          errorMessage.includes('EMAIL_ALREADY_EXISTS') ||
+          errorMessage.toLowerCase().includes('already exists')) {
+        return {
+          success: false,
+          error: 'Este correo electrónico ya está registrado',
+          errorCode: 'EMAIL_ALREADY_IN_USE'
+        };
+      }
+      
+      // Error de red
+      if (errorMessage.toLowerCase().includes('network') || 
+          errorMessage.toLowerCase().includes('fetch') ||
+          errorMessage.toLowerCase().includes('internet') ||
+          errorMessage.toLowerCase().includes('failed to fetch') ||
+          errorMessage.toLowerCase().includes('network request failed')) {
+        return {
+          success: false,
+          error: 'Error de conexión. Verifica tu internet',
+          errorCode: 'NETWORK_ERROR'
+        };
+      }
+      
+      // Otros errores
       return {
         success: false,
-        error: error.message || 'Ocurrió un error al registrar el usuario',
+        error: 'Ocurrió un problema. Intenta más tarde',
         errorCode: 'SIGNUP_ERROR'
       };
     }
@@ -163,6 +226,9 @@ class AuthRepository implements IAuthRepository {
 
   /**
    * Inicia sesión con email y contraseña a través de la API
+   * 
+   * Principio de Seguridad: Nunca revela si el email existe o no
+   * Todos los errores de credenciales devuelven el mismo mensaje genérico
    * 
    * @param data Credenciales de inicio de sesión
    * @returns Resultado de la operación
@@ -185,10 +251,39 @@ class AuthRepository implements IAuthRepository {
       });
 
       if (!response.success) {
+        // Errores de credenciales: siempre mensaje genérico
+        const credentialErrors = [
+          'auth/user-not-found',
+          'auth/wrong-password',
+          'auth/invalid-credential',
+          'auth/invalid-login-credentials',
+          'INVALID_CREDENTIALS',
+          'WRONG_PASSWORD',
+          'USER_NOT_FOUND'
+        ];
+
+        if (response.errorCode && credentialErrors.includes(response.errorCode)) {
+          return {
+            success: false,
+            error: 'Correo o contraseña incorrectos',
+            errorCode: 'INVALID_CREDENTIALS'
+          };
+        }
+
+        // Error de red (sin conexión)
+        if (response.errorCode === 'NETWORK_ERROR' || response.error?.toLowerCase().includes('network')) {
+          return {
+            success: false,
+            error: 'No hay conexión a internet',
+            errorCode: 'NETWORK_ERROR'
+          };
+        }
+
+        // Otros errores
         return {
           success: false,
-          error: response.error || 'Error al iniciar sesión',
-          errorCode: response.errorCode
+          error: 'No se pudo completar la solicitud. Inténtalo más tarde',
+          errorCode: response.errorCode || 'SIGNIN_ERROR'
         };
       }
 
@@ -212,9 +307,40 @@ class AuthRepository implements IAuthRepository {
       };
     } catch (error: any) {
       console.error('Error en inicio de sesión:', error);
+      
+      // Detectar errores de red
+      if (error.message?.toLowerCase().includes('network') || 
+          error.message?.toLowerCase().includes('fetch') ||
+          error.message?.toLowerCase().includes('internet') ||
+          error.message?.toLowerCase().includes('failed to fetch') ||
+          error.message?.toLowerCase().includes('network request failed')) {
+        return {
+          success: false,
+          error: 'No hay conexión a internet',
+          errorCode: 'NETWORK_ERROR'
+        };
+      }
+
+      // Errores de credenciales del catch (si vienen del servidor)
+      const credentialErrors = [
+        'auth/user-not-found',
+        'auth/wrong-password',
+        'auth/invalid-credential',
+        'auth/invalid-login-credentials'
+      ];
+      
+      if (error.message && credentialErrors.some(code => error.message.includes(code))) {
+        return {
+          success: false,
+          error: 'Correo o contraseña incorrectos',
+          errorCode: 'INVALID_CREDENTIALS'
+        };
+      }
+
+      // Otros errores
       return {
         success: false,
-        error: error.message || 'Ocurrió un error al iniciar sesión',
+        error: 'No se pudo completar la solicitud. Inténtalo más tarde',
         errorCode: 'SIGNIN_ERROR'
       };
     }
@@ -301,8 +427,8 @@ class AuthRepository implements IAuthRepository {
       return 'El formato del correo electrónico no es válido';
     }
 
-    if (!data.password || data.password.length < 6) {
-      return 'La contraseña debe tener al menos 6 caracteres';
+    if (!data.password || data.password.length < 8) {
+      return 'La contraseña debe tener al menos 8 caracteres';
     }
 
     if (data.displayName && data.displayName.length > 50) {

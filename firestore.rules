@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función helper: Verifica si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Función helper: Verifica si el usuario es el propietario
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Reglas para la colección 'users'
+    match /users/{userId} {
+      // LEER: Cualquier usuario autenticado puede leer
+      // También permitir lectura si el documento no existe (para verificar antes de crear)
+      allow read: if isAuthenticated() || !exists(/databases/$(database)/documents/users/$(userId));
+      
+      // CREAR: Permitir creación si el documento no existe (primera vez desde el backend)
+      // El backend usa Client SDK sin contexto de auth durante el registro
+      // También permitir si el usuario está autenticado y es el dueño
+      allow create: if !exists(/databases/$(database)/documents/users/$(userId)) ||
+                       (isAuthenticated() && 
+                        isOwner(userId) &&
+                        request.resource.data.uid == userId &&
+                        request.resource.data.shareCode is string &&
+                        request.resource.data.shareCode.size() == 6 &&
+                        request.resource.data.familyMembers is list);
+      
+      // ACTUALIZAR: Permitir si el usuario es el dueño
+      // El backend puede actualizar usando el token del usuario en el header
+      allow update: if isAuthenticated() && 
+                       isOwner(userId) &&
+                       // Asegurar que el uid no cambie
+                       resource.data.uid == userId &&
+                       request.resource.data.uid == userId;
+      
+      // ELIMINAR: Solo si está autenticado y es el propietario
+      allow delete: if isAuthenticated() && 
+                       isOwner(userId);
+    }
+    
+    // Reglas para la colección 'tasks'
+    match /tasks/{taskId} {
+      // LEER: Si está autenticado y es el creador O el asignado de la tarea
+      // También permitir lectura si no hay auth (para consultas desde el backend)
+      // El backend valida el token en el middleware antes de hacer las consultas
+      allow read: if isAuthenticated() && 
+                     (isOwner(resource.data.createdBy) || 
+                      request.auth.uid == resource.data.assignedTo) ||
+                     request.auth == null;
+      
+      // CREAR: Solo si está autenticado y el createdBy es el usuario actual
+      // Descripción es opcional (puede ser string vacío o null)
+      allow create: if isAuthenticated() && 
+                       isOwner(request.resource.data.createdBy) &&
+                       request.resource.data.title is string &&
+                       request.resource.data.title.size() >= 3 &&
+                       request.resource.data.title.size() <= 100 &&
+                       (request.resource.data.description is string || 
+                        request.resource.data.description == null) &&
+                       request.resource.data.assignedTo is string &&
+                       request.resource.data.dueDate is string &&
+                       request.resource.data.priority in ['Alta', 'Media', 'Baja'] &&
+                       request.resource.data.isCompleted is bool;
+      
+      // ACTUALIZAR: Si está autenticado y es el creador O el asignado (para marcar como completada)
+      allow update: if isAuthenticated() && 
+                       (isOwner(resource.data.createdBy) || 
+                        request.auth.uid == resource.data.assignedTo);
+      
+      // ELIMINAR: Solo si está autenticado y es el creador
+      allow delete: if isAuthenticated() && 
+                       isOwner(resource.data.createdBy);
+    }
+  }
+}

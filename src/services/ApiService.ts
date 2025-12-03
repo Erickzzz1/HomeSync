@@ -3,15 +3,21 @@
  * 
  * Maneja todas las peticiones HTTP a la API, incluyendo
  * gestión de tokens y manejo de errores.
+ * 
+ * Seguridad: 
+ * - Usa expo-secure-store en dispositivos móviles (iOS/Android)
+ * - Usa localStorage en web (expo-secure-store no es compatible con web)
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '@env';
 
-const TOKEN_KEY = '@homesync:auth_token';
+const TOKEN_KEY = 'homesync_auth_token';
+const isWeb = Platform.OS === 'web';
 
 class ApiService {
-  private baseUrl: string;
+  public baseUrl: string;
 
   constructor() {
     // Usar la URL de la API desde variables de entorno o localhost por defecto
@@ -20,10 +26,20 @@ class ApiService {
 
   /**
    * Obtiene el token de autenticación almacenado
+   * Usa SecureStore en móvil y localStorage en web
    */
-  private async getToken(): Promise<string | null> {
+  async getToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(TOKEN_KEY);
+      if (isWeb) {
+        // En web, usar localStorage
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(TOKEN_KEY);
+        }
+        return null;
+      } else {
+        // En móvil, usar SecureStore
+        return await SecureStore.getItemAsync(TOKEN_KEY);
+      }
     } catch (error) {
       // console.error('Error al obtener token:', error);
       return null;
@@ -32,10 +48,19 @@ class ApiService {
 
   /**
    * Guarda el token de autenticación
+   * Usa SecureStore en móvil y localStorage en web
    */
   async saveToken(token: string): Promise<void> {
     try {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
+      if (isWeb) {
+        // En web, usar localStorage
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(TOKEN_KEY, token);
+        }
+      } else {
+        // En móvil, usar SecureStore
+        await SecureStore.setItemAsync(TOKEN_KEY, token);
+      }
     } catch (error) {
       // console.error('Error al guardar token:', error);
     }
@@ -43,10 +68,19 @@ class ApiService {
 
   /**
    * Elimina el token de autenticación
+   * Usa SecureStore en móvil y localStorage en web
    */
   async removeToken(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(TOKEN_KEY);
+      if (isWeb) {
+        // En web, usar localStorage
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(TOKEN_KEY);
+        }
+      } else {
+        // En móvil, usar SecureStore
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+      }
     } catch (error) {
       console.error('Error al eliminar token:', error);
     }
@@ -80,8 +114,14 @@ class ApiService {
 
       const data = await response.json();
 
+      // Si la respuesta no es exitosa, lanzar error con el mensaje de la API
       if (!response.ok) {
-        throw new Error(data.error || 'Error en la petición');
+        const errorMessage = data.error || data.message || 'Error en la petición';
+        const error = new Error(errorMessage);
+        // Agregar información adicional al error
+        (error as any).response = data;
+        (error as any).status = response.status;
+        throw error;
       }
 
       return data;
@@ -133,9 +173,10 @@ class ApiService {
   /**
    * DELETE request
    */
-  async delete<T>(endpoint: string): Promise<T> {
+  async delete<T>(endpoint: string, options?: { body?: string }): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'DELETE',
+      body: options?.body
     });
   }
 }

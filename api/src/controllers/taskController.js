@@ -16,8 +16,10 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  or
 } from 'firebase/firestore';
+import { sendNotificationToUser } from './notificationController.js';
 
 const COLLECTION_NAME = 'tasks';
 
@@ -26,7 +28,7 @@ const COLLECTION_NAME = 'tasks';
  */
 export const createTask = async (req, res) => {
   try {
-    const { title, description, assignedTo, dueDate, priority } = req.body;
+    const { title, description, assignedTo, dueDate, priority, reminderTime } = req.body;
     const userId = req.user.uid;
 
     // Validación
@@ -42,10 +44,11 @@ export const createTask = async (req, res) => {
     // Preparar datos
     const taskData = {
       title: title.trim(),
-      description: description.trim(),
+      description: (description || '').trim(), // Descripción opcional
       assignedTo: assignedTo.trim(),
       dueDate,
       priority,
+      reminderTime: reminderTime || null, // Hora del recordatorio opcional
       createdBy: userId,
       isCompleted: false,
       createdAt: serverTimestamp(),
@@ -66,6 +69,34 @@ export const createTask = async (req, res) => {
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
 
+    // Enviar notificación si la tarea está asignada a otro usuario
+    if (assignedTo.trim() !== userId) {
+      try {
+        // Obtener nombre del usuario que creó la tarea
+        const creatorDocRef = doc(firestore, 'users', userId);
+        const creatorDoc = await getDoc(creatorDocRef);
+        const creatorName = creatorDoc.exists() 
+          ? (creatorDoc.data().displayName || creatorDoc.data().email || 'Un usuario')
+          : 'Un usuario';
+
+        // Enviar notificación
+        await sendNotificationToUser(
+          assignedTo.trim(),
+          'Nueva tarea asignada',
+          `${creatorName} te asignó una tarea: "${title.trim()}". Abre para más detalles.`,
+          {
+            type: 'task_assigned',
+            taskId: docRef.id,
+            createdBy: userId,
+            title: title.trim()
+          }
+        );
+      } catch (notificationError) {
+        // No fallar la creación de la tarea si falla la notificación
+        console.error('Error al enviar notificación:', notificationError);
+      }
+    }
+
     res.json({
       success: true,
       task
@@ -82,6 +113,7 @@ export const createTask = async (req, res) => {
 
 /**
  * Obtiene todas las tareas de un usuario
+ * Incluye tareas creadas por el usuario y tareas asignadas al usuario
  */
 export const getTasks = async (req, res) => {
   try {
@@ -89,33 +121,42 @@ export const getTasks = async (req, res) => {
 
     const tasksCollection = collection(firestore, COLLECTION_NAME);
 
-    // Intentar consulta con orderBy primero
-    let snapshot;
+    // Obtener tareas creadas por el usuario
+    let createdTasksSnapshot;
     try {
-      const q = query(
+      const createdQ = query(
         tasksCollection,
-        where('createdBy', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('createdBy', '==', userId)
       );
-      snapshot = await getDocs(q);
-    } catch (orderByError) {
-      // Si falla por índice, intentar sin orderBy
-      if (orderByError?.code === 'failed-precondition' || orderByError?.message?.includes('index')) {
-        console.warn('Indice compuesto no encontrado, consultando sin orderBy');
-        const q = query(
-          tasksCollection,
-          where('createdBy', '==', userId)
-        );
-        snapshot = await getDocs(q);
-      } else {
-        throw orderByError;
-      }
+      createdTasksSnapshot = await getDocs(createdQ);
+      console.log(`Tareas creadas encontradas para usuario ${userId}:`, createdTasksSnapshot.size);
+    } catch (error) {
+      console.error('Error al obtener tareas creadas:', error);
+      console.error('Detalles del error:', error.message, error.code);
+      createdTasksSnapshot = { forEach: () => {} }; // Snapshot vacío
     }
 
-    const tasks = [];
-    snapshot.forEach((doc) => {
+    // Obtener tareas asignadas al usuario
+    let assignedTasksSnapshot;
+    try {
+      const assignedQ = query(
+        tasksCollection,
+        where('assignedTo', '==', userId)
+      );
+      assignedTasksSnapshot = await getDocs(assignedQ);
+      console.log(`Tareas asignadas encontradas para usuario ${userId}:`, assignedTasksSnapshot.size);
+    } catch (error) {
+      console.error('Error al obtener tareas asignadas:', error);
+      console.error('Detalles del error:', error.message, error.code);
+      assignedTasksSnapshot = { forEach: () => {} }; // Snapshot vacío
+    }
+
+    // Combinar tareas y eliminar duplicados
+    const tasksMap = new Map();
+
+    createdTasksSnapshot.forEach((doc) => {
       const data = doc.data();
-      tasks.push({
+      tasksMap.set(doc.id, {
         id: doc.id,
         ...data,
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
@@ -123,19 +164,40 @@ export const getTasks = async (req, res) => {
       });
     });
 
-    // Ordenar manualmente si no se usó orderBy
+    assignedTasksSnapshot.forEach((doc) => {
+      // Solo agregar si no existe (evitar duplicados si el usuario creó y se asignó a sí mismo)
+      if (!tasksMap.has(doc.id)) {
+        const data = doc.data();
+        // Verificar que la tarea realmente está asignada al usuario (doble verificación)
+        if (data.assignedTo === userId) {
+          tasksMap.set(doc.id, {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+          });
+        } else {
+          console.warn(`Tarea ${doc.id} encontrada pero assignedTo (${data.assignedTo}) no coincide con userId (${userId})`);
+        }
+      }
+    });
+
+    // Convertir Map a Array y ordenar por fecha de creación (más recientes primero)
+    const tasks = Array.from(tasksMap.values());
     tasks.sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
       return dateB - dateA;
     });
 
+    console.log(`Total de tareas retornadas para usuario ${userId}: ${tasks.length} (${createdTasksSnapshot.size || 0} creadas, ${assignedTasksSnapshot.size || 0} asignadas)`);
+
     res.json({
       success: true,
       tasks
     });
   } catch (error) {
-    // console.error('Error al obtener tareas:', error);
+    console.error('Error al obtener tareas:', error);
     res.status(500).json({
       success: false,
       error: 'Error al obtener las tareas',
@@ -372,11 +434,11 @@ function validateCreateTaskData(data) {
     return 'El título no puede exceder 100 caracteres';
   }
 
-  if (!data.description || !data.description.trim()) {
-    return 'La descripción es requerida';
-  }
-  if (data.description.length > 500) {
-    return 'La descripción no puede exceder 500 caracteres';
+  // Descripción es opcional, pero si se proporciona debe ser válida
+  if (data.description && data.description.trim()) {
+    if (data.description.length > 500) {
+      return 'La descripción no puede exceder 500 caracteres';
+    }
   }
 
   if (!data.assignedTo || !data.assignedTo.trim()) {

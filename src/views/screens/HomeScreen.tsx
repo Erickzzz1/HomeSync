@@ -4,7 +4,7 @@
  * Se muestra después de que el usuario inicia sesión exitosamente.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import AuthRepository from '../../repositories/AuthRepository';
 import { AppStackParamList } from '../../navigation/AppNavigator';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { initializeNotifications, setupNotificationListeners } from '../../services/NotificationService';
 
 type HomeScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Home'>;
 
@@ -34,6 +35,45 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { alertState, showError, showConfirm, hideAlert } = useCustomAlert();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  /**
+   * Inicializa notificaciones cuando el componente se monta
+   */
+  useEffect(() => {
+    if (user?.uid) {
+      // Inicializar notificaciones
+      initializeNotifications();
+
+      // Configurar listeners de notificaciones
+      const cleanup = setupNotificationListeners(
+        (notification) => {
+          // Notificación recibida mientras la app está en primer plano
+          console.log('Notificación recibida:', notification);
+        },
+        (response) => {
+          // Usuario tocó la notificación
+          const data = response.notification.request.content.data;
+          if (data?.type === 'task_assigned') {
+            // Navegar a la lista de tareas para ver la nueva tarea asignada
+            navigation.navigate('TaskList');
+          }
+        }
+      );
+
+      return cleanup;
+    }
+  }, [user?.uid, navigation]);
+
+  /**
+   * Extrae solo el primer nombre del nombre completo
+   * Ejemplo: "Juan Perez" -> "Juan", "María José" -> "María"
+   */
+  const getFirstName = (fullName: string | null | undefined): string => {
+    if (!fullName) return '';
+    // Obtener el primer nombre (antes del primer espacio)
+    const firstName = fullName.trim().split(' ')[0];
+    return firstName;
+  };
 
   /**
    * Maneja el cierre de sesión
@@ -82,7 +122,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeEmoji}>👋</Text>
           <Text style={styles.welcomeTitle}>
-            ¡Bienvenido{user?.displayName ? `, ${user.displayName}` : ''}!
+            {user?.displayName 
+              ? `¡Bienvenid@, ${getFirstName(user.displayName)}!`
+              : '¡Bienvenid@!'}
           </Text>
           <Text style={styles.welcomeSubtitle}>
             Has iniciado sesión en HomeSync
@@ -100,6 +142,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => navigation.navigate('TaskList')}
         >
           <Text style={styles.tasksButtonText}>📝 Ver Mis Tareas</Text>
+        </TouchableOpacity>
+
+        {/* Botón de Mi Familia */}
+        <TouchableOpacity
+          style={styles.familyButton}
+          onPress={() => navigation.navigate('Family')}
+        >
+          <Text style={styles.familyButtonText}>👨‍👩‍👧‍👦 Mi Familia</Text>
         </TouchableOpacity>
 
         {/* Botón de Cerrar Sesión */}
@@ -227,6 +277,18 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   tasksButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  familyButton: {
+    backgroundColor: '#34C759',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  familyButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'

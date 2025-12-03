@@ -10,6 +10,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
+import familyRoutes from './routes/familyRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import './config/firebase.js'; // Inicializar Firebase
 
 dotenv.config();
@@ -37,6 +39,8 @@ app.use((req, res, next) => {
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/family', familyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Ruta de salud
 app.get('/health', (req, res) => {

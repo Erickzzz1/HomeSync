@@ -21,6 +21,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setTasks, removeTask, updateTask, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
+import FamilyRepository from '../../repositories/FamilyRepository';
 import { TaskModel } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
@@ -38,8 +39,54 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   const { alertState, showSuccess, showError, showConfirm, hideAlert } = useCustomAlert();
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [userNameMap, setUserNameMap] = useState<Map<string, string>>(new Map());
 
   const taskRepository = new TaskRepository();
+
+  /**
+   * Carga el mapa de nombres de usuarios (familiares + usuario actual)
+   */
+  const loadUserNameMap = useCallback(async () => {
+    if (!user?.uid) return;
+
+    const nameMap = new Map<string, string>();
+    
+    // Agregar el usuario actual al mapa
+    nameMap.set(user.uid, user.displayName || user.email || 'Yo');
+    
+    // Cargar familiares y agregarlos al mapa
+    try {
+      const familyRepository = new FamilyRepository();
+      const familyResult = await familyRepository.getFamilyMembers();
+      if (familyResult.success && familyResult.familyMembers) {
+        familyResult.familyMembers.forEach((member) => {
+          nameMap.set(
+            member.uid,
+            member.displayName || member.email || 'Sin nombre'
+          );
+        });
+      }
+    } catch (error) {
+      console.error('Error al cargar familiares para mapeo de nombres:', error);
+    }
+    
+    setUserNameMap(nameMap);
+  }, [user?.uid, user?.displayName, user?.email]);
+
+  /**
+   * Obtiene el nombre del usuario asignado a partir de su UID
+   */
+  const getAssignedUserName = (assignedToUid: string): string => {
+    if (!assignedToUid) return 'Sin asignar';
+    
+    // Si es el usuario actual
+    if (assignedToUid === user?.uid) {
+      return user.displayName || user.email || 'Yo';
+    }
+    
+    // Buscar en el mapa de nombres
+    return userNameMap.get(assignedToUid) || assignedToUid;
+  };
 
   /**
    * Carga las tareas del usuario
@@ -58,6 +105,16 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     dispatch(setLoading(false));
   }, [user?.uid, dispatch, showError]);
 
+  // Cargar mapa de nombres cuando cambia el usuario
+  useEffect(() => {
+    if (user?.uid) {
+      loadUserNameMap();
+    } else {
+      setUserNameMap(new Map());
+    }
+  }, [user?.uid, user?.displayName, user?.email, loadUserNameMap]);
+
+  // Cargar tareas cuando cambia el usuario
   useEffect(() => {
     // Limpiar tareas anteriores cuando cambia el usuario
     if (user?.uid) {
@@ -217,7 +274,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Text style={styles.priorityText}>{item.priority}</Text>
           </View>
-          <Text style={styles.assignedText}>👤 {item.assignedTo}</Text>
+          <Text style={styles.assignedText}>👤 {getAssignedUserName(item.assignedTo)}</Text>
         </View>
         <Text style={styles.dueDateText}>
           📅 {new Date(item.dueDate).toLocaleDateString()}

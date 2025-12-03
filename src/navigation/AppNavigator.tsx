@@ -17,6 +17,7 @@ import LoadingScreen from '../views/screens/LoadingScreen';
 import TaskListScreen from '../views/screens/TaskListScreen';
 import CreateTaskScreen from '../views/screens/CreateTaskScreen';
 import TaskDetailScreen from '../views/screens/TaskDetailScreen';
+import FamilyScreen from '../views/screens/FamilyScreen';
 import { TaskModel } from '../models/TaskModel';
 
 /**
@@ -32,6 +33,7 @@ export type AppStackParamList = {
   TaskList: undefined;
   CreateTask: undefined;
   TaskDetail: { task: TaskModel };
+  Family: undefined;
 };
 
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -89,6 +91,11 @@ const AppNavigator = () => {
         name="TaskDetail" 
         component={TaskDetailScreen}
         options={{ title: 'Detalle de Tarea' }}
+      />
+      <AppStack.Screen 
+        name="Family" 
+        component={FamilyScreen}
+        options={{ title: 'Mi Familia' }}
       />
     </AppStack.Navigator>
   );
