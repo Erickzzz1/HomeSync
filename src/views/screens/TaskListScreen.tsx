@@ -1,11 +1,17 @@
 /**
- * TaskListScreen - Pantalla de lista/dashboard de tareas
+ * TaskListScreen - Pantalla mejorada de lista/dashboard de tareas
  * 
- * Muestra todas las tareas del usuario con opciones de
- * filtrado, edición y eliminación.
+ * HU-04: Implementa funcionalidades avanzadas:
+ * - Tiempo real con polling (preparado para onSnapshot)
+ * - Ordenamiento: Pendientes primero (por fecha), luego completadas
+ * - Filtros: Todas | Pendientes | Completadas
+ * - Infinite Scroll con paginación
+ * - LayoutAnimation para animaciones suaves
+ * - NetInfo para detectar conexión offline
+ * - Permisos de borrado (solo creador)
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,16 +21,28 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Platform,
-  RefreshControl
+  RefreshControl,
+  LayoutAnimation,
+  UIManager,
+  Alert
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setTasks, removeTask, updateTask, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
 import FamilyRepository from '../../repositories/FamilyRepository';
 import { TaskModel } from '../../models/TaskModel';
+import TaskItem from '../../components/TaskItem';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { subscribeToTasks } from '../../services/TaskFirestoreService';
+import { Unsubscribe } from 'firebase/firestore';
+
+// Habilitar LayoutAnimation en Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type TaskListScreenNavigationProp = StackNavigationProp<any, 'TaskList'>;
 
@@ -32,16 +50,45 @@ interface Props {
   navigation: TaskListScreenNavigationProp;
 }
 
+const PAGE_SIZE = 20; // Tamaño de página para infinite scroll
+
 const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
   const { tasks, isLoading } = useAppSelector((state) => state.tasks);
   const dispatch = useAppDispatch();
   const { alertState, showSuccess, showError, showConfirm, hideAlert } = useCustomAlert();
+  
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [userNameMap, setUserNameMap] = useState<Map<string, string>>(new Map());
-
+  const [isOnline, setIsOnline] = useState(true);
+  const [displayedTasks, setDisplayedTasks] = useState<TaskModel[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
+  
   const taskRepository = new TaskRepository();
+  const unsubscribeTasksRef = useRef<Unsubscribe | null>(null);
+  const unsubscribeNetInfoRef = useRef<any>(null);
+
+  /**
+   * Configura animaciones de layout
+   */
+  const configureLayoutAnimation = () => {
+    LayoutAnimation.configureNext({
+      duration: 300,
+      create: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity
+      },
+      update: {
+        type: LayoutAnimation.Types.easeInEaseOut
+      },
+      delete: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity
+      }
+    });
+  };
 
   /**
    * Carga el mapa de nombres de usuarios (familiares + usuario actual)
@@ -89,21 +136,103 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
-   * Carga las tareas del usuario
+   * Configura el listener de onSnapshot para tareas en tiempo real
    */
-  const loadTasks = useCallback(async () => {
-    if (!user?.uid) return;
-
-    dispatch(setLoading(true));
-    const result = await taskRepository.getTasks(user.uid);
-
-    if (result.success && result.tasks) {
-      dispatch(setTasks(result.tasks));
-    } else {
-      showError(result.error || 'No se pudieron cargar las tareas');
+  const setupTasksListener = useCallback(() => {
+    // Limpiar listener anterior si existe
+    if (unsubscribeTasksRef.current) {
+      unsubscribeTasksRef.current();
+      unsubscribeTasksRef.current = null;
     }
-    dispatch(setLoading(false));
-  }, [user?.uid, dispatch, showError]);
+
+    if (!user?.uid || !isOnline) {
+      dispatch(setTasks([]));
+      setDisplayedTasks([]);
+      return;
+    }
+
+    // Configurar listener en tiempo real
+    unsubscribeTasksRef.current = subscribeToTasks(
+      user.uid,
+      (tasks: TaskModel[]) => {
+        // Las tareas ya vienen ordenadas del servicio
+        configureLayoutAnimation();
+        dispatch(setTasks(tasks));
+        resetPagination(tasks);
+      }
+    );
+  }, [user?.uid, isOnline, dispatch]);
+
+  /**
+   * Resetea la paginación y actualiza las tareas mostradas
+   */
+  const resetPagination = (tasksToDisplay: TaskModel[]) => {
+    setCurrentPage(0);
+    const filtered = getFilteredTasksFromList(tasksToDisplay);
+    setDisplayedTasks(filtered.slice(0, PAGE_SIZE));
+    setHasMore(filtered.length > PAGE_SIZE);
+  };
+
+  /**
+   * Filtra las tareas según el filtro seleccionado
+   */
+  const getFilteredTasksFromList = (tasksList: TaskModel[]): TaskModel[] => {
+    switch (filter) {
+      case 'pending':
+        return tasksList.filter(task => !task.isCompleted);
+      case 'completed':
+        return tasksList.filter(task => task.isCompleted);
+      default:
+        return tasksList;
+    }
+  };
+
+  /**
+   * Carga más tareas (infinite scroll)
+   */
+  const loadMoreTasks = useCallback(() => {
+    if (!hasMore || isLoading) return;
+
+    const filtered = getFilteredTasksFromList(tasks);
+    const nextPage = currentPage + 1;
+    const startIndex = nextPage * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+    const newTasks = filtered.slice(startIndex, endIndex);
+
+    if (newTasks.length > 0) {
+      setDisplayedTasks(prev => [...prev, ...newTasks]);
+      setCurrentPage(nextPage);
+      setHasMore(endIndex < filtered.length);
+    } else {
+      setHasMore(false);
+    }
+  }, [hasMore, isLoading, currentPage, tasks, filter]);
+
+
+  /**
+   * Configura el listener de NetInfo
+   */
+  const setupNetInfo = useCallback(() => {
+    if (unsubscribeNetInfoRef.current) {
+      unsubscribeNetInfoRef.current();
+    }
+
+    unsubscribeNetInfoRef.current = NetInfo.addEventListener(state => {
+      const online = state.isConnected ?? false;
+      setIsOnline(online);
+      
+      if (online) {
+        // Reconectar cuando vuelve la conexión
+        setupTasksListener();
+      } else {
+        // Detener listener cuando se pierde la conexión
+        if (unsubscribeTasksRef.current) {
+          unsubscribeTasksRef.current();
+          unsubscribeTasksRef.current = null;
+        }
+      }
+    });
+  }, [setupTasksListener]);
 
   // Cargar mapa de nombres cuando cambia el usuario
   useEffect(() => {
@@ -114,25 +243,49 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [user?.uid, user?.displayName, user?.email, loadUserNameMap]);
 
-  // Cargar tareas cuando cambia el usuario
+  // Configurar listener de onSnapshot cuando cambia el usuario o la conexión
   useEffect(() => {
-    // Limpiar tareas anteriores cuando cambia el usuario
-    if (user?.uid) {
-      dispatch(setTasks([]));
-      loadTasks();
-    } else {
-      // Si no hay usuario, limpiar tareas
-      dispatch(setTasks([]));
-    }
-  }, [user?.uid, dispatch, loadTasks]);
+    setupTasksListener();
+    return () => {
+      if (unsubscribeTasksRef.current) {
+        unsubscribeTasksRef.current();
+      }
+    };
+  }, [setupTasksListener]);
+
+  // Configurar NetInfo
+  useEffect(() => {
+    setupNetInfo();
+    return () => {
+      if (unsubscribeNetInfoRef.current) {
+        unsubscribeNetInfoRef.current();
+      }
+    };
+  }, [setupNetInfo]);
+
+  // Actualizar tareas mostradas cuando cambian las tareas o el filtro
+  useEffect(() => {
+    const filtered = getFilteredTasksFromList(tasks);
+    resetPagination(filtered);
+  }, [tasks, filter]);
 
   /**
    * Refresca la lista de tareas
+   * Con onSnapshot, solo forzamos una reconexión del listener
    */
   const onRefresh = async () => {
+    if (!isOnline) {
+      showError('Sin conexión a internet');
+      return;
+    }
+
     setRefreshing(true);
-    await loadTasks();
-    setRefreshing(false);
+    // Reconectar el listener (onSnapshot se actualiza automáticamente)
+    setupTasksListener();
+    // Simular un pequeño delay para el feedback visual
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 500);
   };
 
   /**
@@ -153,12 +306,18 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
    * Cambia el estado de completado de una tarea
    */
   const toggleTaskCompletion = async (task: TaskModel) => {
+    if (!isOnline) {
+      showError('Sin conexión a internet');
+      return;
+    }
+
     const newStatus = !task.isCompleted;
     
     dispatch(setLoading(true));
     const result = await taskRepository.toggleTaskCompletion(task.id, newStatus);
 
     if (result.success && result.task) {
+      configureLayoutAnimation();
       dispatch(updateTask(result.task));
     } else {
       showError(result.error || 'No se pudo actualizar la tarea');
@@ -170,6 +329,11 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
    * Elimina una tarea
    */
   const deleteTask = async (taskId: string) => {
+    if (!isOnline) {
+      Alert.alert('Error', 'Sin conexión a internet');
+      return;
+    }
+
     showConfirm(
       '¿Estás seguro de que deseas eliminar esta tarea?',
       'Eliminar Tarea',
@@ -178,10 +342,11 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         const result = await taskRepository.deleteTask(taskId);
 
         if (result.success) {
+          configureLayoutAnimation();
           dispatch(removeTask(taskId));
           showSuccess('Tarea eliminada correctamente');
         } else {
-          showError(result.error || 'No se pudo eliminar la tarea');
+          Alert.alert('Error', result.error || 'No se pudo eliminar la tarea');
         }
         dispatch(setLoading(false));
       },
@@ -192,96 +357,39 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
-   * Filtra las tareas según el filtro seleccionado
+   * Cambia el filtro de tareas
    */
-  const getFilteredTasks = (): TaskModel[] => {
-    switch (filter) {
-      case 'pending':
-        return tasks.filter(task => !task.isCompleted);
-      case 'completed':
-        return tasks.filter(task => task.isCompleted);
-      default:
-        return tasks;
-    }
+  const changeFilter = (newFilter: 'all' | 'pending' | 'completed') => {
+    configureLayoutAnimation();
+    setFilter(newFilter);
   };
 
   /**
-   * Obtiene el color según la prioridad
-   */
-  const getPriorityColor = (priority: string): string => {
-    switch (priority) {
-      case 'Alta':
-        return '#FF3B30';
-      case 'Media':
-        return '#FF9500';
-      case 'Baja':
-        return '#34C759';
-      default:
-        return '#999';
-    }
-  };
-
-  /**
-   * Renderiza una tarea individual
+   * Renderiza una tarea individual usando el componente TaskItem
    */
   const renderTask = ({ item }: { item: TaskModel }) => (
-    <TouchableOpacity
-      style={styles.taskCard}
-      onPress={() => navigateToTaskDetail(item)}
-    >
-      <View style={styles.taskHeader}>
-        <View style={styles.taskTitleRow}>
-          <TouchableOpacity
-            style={[
-              styles.checkbox,
-              item.isCompleted && styles.checkboxChecked
-            ]}
-            onPress={() => toggleTaskCompletion(item)}
-          >
-            {item.isCompleted && <Text style={styles.checkmark}>✓</Text>}
-          </TouchableOpacity>
-          <View style={styles.taskInfo}>
-            <Text
-              style={[
-                styles.taskTitle,
-                item.isCompleted && styles.taskTitleCompleted
-              ]}
-              numberOfLines={1}
-            >
-              {item.title}
-            </Text>
-            <Text style={styles.taskDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => deleteTask(item.id)}
-        >
-          <Text style={styles.deleteButtonText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.taskFooter}>
-        <View style={styles.taskMeta}>
-          <View
-            style={[
-              styles.priorityBadge,
-              { backgroundColor: getPriorityColor(item.priority) }
-            ]}
-          >
-            <Text style={styles.priorityText}>{item.priority}</Text>
-          </View>
-          <Text style={styles.assignedText}>👤 {getAssignedUserName(item.assignedTo)}</Text>
-        </View>
-        <Text style={styles.dueDateText}>
-          📅 {new Date(item.dueDate).toLocaleDateString()}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <TaskItem
+      task={item}
+      currentUserId={user?.uid || ''}
+      assignedUserName={getAssignedUserName(item.assignedTo)}
+      onToggleComplete={toggleTaskCompletion}
+      onDelete={deleteTask}
+      onPress={navigateToTaskDetail}
+    />
   );
+
+  /**
+   * Renderiza el footer de la lista (para infinite scroll)
+   */
+  const renderFooter = () => {
+    if (!hasMore) return null;
+    
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#4A90E2" />
+      </View>
+    );
+  };
 
   /**
    * Renderiza mensaje cuando no hay tareas
@@ -298,7 +406,6 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  const filteredTasks = getFilteredTasks();
   const stats = {
     total: tasks.length,
     pending: tasks.filter(t => !t.isCompleted).length,
@@ -307,6 +414,13 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Banner de conexión offline */}
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>⚠️ Sin conexión a internet</Text>
+        </View>
+      )}
+
       {/* Header con estadísticas */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
@@ -331,7 +445,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
-          onPress={() => setFilter('all')}
+          onPress={() => changeFilter('all')}
         >
           <Text
             style={[
@@ -344,7 +458,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'pending' && styles.filterButtonActive]}
-          onPress={() => setFilter('pending')}
+          onPress={() => changeFilter('pending')}
         >
           <Text
             style={[
@@ -357,7 +471,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'completed' && styles.filterButtonActive]}
-          onPress={() => setFilter('completed')}
+          onPress={() => changeFilter('completed')}
         >
           <Text
             style={[
@@ -371,21 +485,31 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* Lista de tareas */}
-      {isLoading && !refreshing ? (
+      {isLoading && !refreshing && displayedTasks.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
           <Text style={styles.loadingText}>Cargando tareas...</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredTasks}
+          data={displayedTasks}
           renderItem={renderTask}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={renderFooter}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              enabled={isOnline}
+            />
           }
+          onEndReached={loadMoreTasks}
+          onEndReachedThreshold={0.5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={10}
+          windowSize={10}
         />
       )}
 
@@ -393,6 +517,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       <TouchableOpacity
         style={styles.fab}
         onPress={navigateToCreateTask}
+        disabled={!isOnline}
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
@@ -417,6 +542,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5'
+  },
+  offlineBanner: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center'
+  },
+  offlineText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
   },
   statsContainer: {
     flexDirection: 'row',
@@ -470,101 +606,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80
   },
-  taskCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
-  },
-  taskHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start'
-  },
-  taskTitleRow: {
-    flexDirection: 'row',
-    flex: 1,
-    alignItems: 'flex-start'
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#4A90E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  checkboxChecked: {
-    backgroundColor: '#4A90E2'
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold'
-  },
-  taskInfo: {
-    flex: 1
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4
-  },
-  taskTitleCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#999'
-  },
-  taskDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20
-  },
-  deleteButton: {
-    padding: 4
-  },
-  deleteButtonText: {
-    fontSize: 20
-  },
-  taskFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0'
-  },
-  taskMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  priorityBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4
-  },
-  priorityText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  assignedText: {
-    fontSize: 12,
-    color: '#666'
-  },
-  dueDateText: {
-    fontSize: 12,
-    color: '#666'
-  },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -596,6 +637,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666'
   },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center'
+  },
   fab: {
     position: 'absolute',
     right: 20,
@@ -620,5 +665,3 @@ const styles = StyleSheet.create({
 });
 
 export default TaskListScreen;
-
-

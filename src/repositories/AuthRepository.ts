@@ -12,6 +12,7 @@
  */
 
 import ApiService from '../services/ApiService';
+import { syncFirebaseAuth, signOutFirebase } from '../services/FirebaseService';
 import {
   IAuthRepository,
   AuthResult,
@@ -292,6 +293,17 @@ class AuthRepository implements IAuthRepository {
         await ApiService.saveToken(response.token);
       }
 
+      // Sincronizar autenticación con Firebase Auth para que onSnapshot funcione
+      if (response.user?.email) {
+        try {
+          await syncFirebaseAuth(data.email, data.password);
+        } catch (firebaseAuthError) {
+          // No fallar el login si falla la sincronización con Firebase
+          // onSnapshot seguirá funcionando con las reglas que permiten lectura autenticada
+          console.warn('No se pudo sincronizar con Firebase Auth, pero el login fue exitoso:', firebaseAuthError);
+        }
+      }
+
       // Convertir usuario de API a formato Firebase
       let user: User | undefined;
       if (response.user) {
@@ -355,6 +367,9 @@ class AuthRepository implements IAuthRepository {
     try {
       // Llamar a la API para cerrar sesión
       await ApiService.post('/api/auth/signout');
+
+      // Cerrar sesión en Firebase Auth también
+      await signOutFirebase();
 
       // Eliminar token local
       await ApiService.removeToken();

@@ -136,9 +136,9 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
       const result = await familyRepository.addFamilyMember(newShareCode.toUpperCase().trim());
 
       if (result.success && result.member) {
-        // Agregar el nuevo miembro a la lista
-        setFamilyMembers([...familyMembers, result.member]);
         setNewShareCode('');
+        // Recargar la lista completa desde el servidor para obtener todos los miembros sincronizados
+        await loadData();
         showSuccess(
           `${result.member.displayName || 'Usuario'} agregado a tu familia`,
           'Miembro Agregado'

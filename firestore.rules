@@ -30,12 +30,22 @@ service cloud.firestore {
                         request.resource.data.familyMembers is list);
       
       // ACTUALIZAR: Permitir si el usuario es el dueño
+      // También permitir actualizar familyMembers de otros usuarios para sincronización bidireccional
       // El backend puede actualizar usando el token del usuario en el header
-      allow update: if isAuthenticated() && 
-                       isOwner(userId) &&
-                       // Asegurar que el uid no cambie
-                       resource.data.uid == userId &&
-                       request.resource.data.uid == userId;
+      allow update: if isAuthenticated() && (
+                       // El usuario puede actualizar su propio documento completamente
+                       (isOwner(userId) &&
+                        resource.data.uid == userId &&
+                        request.resource.data.uid == userId) ||
+                       // O puede actualizar solo el campo familyMembers de otros usuarios (para sincronización)
+                       (!isOwner(userId) &&
+                        // Asegurar que los campos críticos no cambien
+                        request.resource.data.uid == resource.data.uid &&
+                        request.resource.data.shareCode == resource.data.shareCode &&
+                        request.resource.data.email == resource.data.email &&
+                        // Permitir cambios en familyMembers y updatedAt
+                        request.resource.data.familyMembers is list)
+                     );
       
       // ELIMINAR: Solo si está autenticado y es el propietario
       allow delete: if isAuthenticated() && 

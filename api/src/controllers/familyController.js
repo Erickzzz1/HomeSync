@@ -176,10 +176,15 @@ export const getFamilyMembers = async (req, res) => {
     }
 
     const userData = userDoc.data();
-    console.log('Datos del usuario:', userData);
+    console.log('=== GET FAMILY MEMBERS ===');
+    console.log('Usuario ID:', userId);
+    console.log('Datos del usuario:', JSON.stringify(userData, null, 2));
     const familyMemberIds = userData?.familyMembers || [];
+    console.log('IDs de familiares en el documento:', familyMemberIds);
+    console.log('Cantidad de IDs:', familyMemberIds.length);
 
     if (familyMemberIds.length === 0) {
+      console.log('No hay familiares, devolviendo lista vacía');
       return res.json({
         success: true,
         familyMembers: []
@@ -190,17 +195,25 @@ export const getFamilyMembers = async (req, res) => {
     const familyMembers = [];
     for (const memberId of familyMemberIds) {
       try {
+        console.log(`Obteniendo información del miembro: ${memberId}`);
         const memberDocRef = doc(collection(firestore, 'users'), memberId);
         const memberDoc = await getDoc(memberDocRef);
         
         if (memberDoc.exists()) {
           const memberData = memberDoc.data();
+          console.log(`Datos del miembro ${memberId}:`, {
+            uid: memberData.uid,
+            email: memberData.email,
+            displayName: memberData.displayName
+          });
           familyMembers.push({
             uid: memberData.uid,
             email: memberData.email,
             displayName: memberData.displayName || 'Sin nombre',
             shareCode: memberData.shareCode
           });
+        } else {
+          console.warn(`El documento del miembro ${memberId} no existe`);
         }
       } catch (memberError) {
         console.error(`Error al obtener información del miembro ${memberId}:`, memberError);
@@ -208,7 +221,8 @@ export const getFamilyMembers = async (req, res) => {
       }
     }
 
-    console.log('Devolviendo', familyMembers.length, 'familiares');
+    console.log('Total de familiares encontrados:', familyMembers.length);
+    console.log('Lista final de familiares:', familyMembers.map(m => ({ uid: m.uid, name: m.displayName })));
     res.json({
       success: true,
       familyMembers
@@ -260,9 +274,9 @@ export const addFamilyMember = async (req, res) => {
     }
 
     // Obtener el usuario encontrado
-    const foundUserDoc = querySnapshot.docs[0];
-    const foundUserId = foundUserDoc.id;
-    const foundUserData = foundUserDoc.data();
+    const foundUserQueryDoc = querySnapshot.docs[0];
+    const foundUserId = foundUserQueryDoc.id;
+    const foundUserData = foundUserQueryDoc.data();
 
     // Validaciones
     if (foundUserId === userId) {
@@ -306,9 +320,9 @@ export const addFamilyMember = async (req, res) => {
     }
 
     const userData = userDoc.data();
-    const familyMembers = userData.familyMembers || [];
+    const userFamilyMembers = userData.familyMembers || [];
 
-    if (familyMembers.includes(foundUserId)) {
+    if (userFamilyMembers.includes(foundUserId)) {
       return res.status(400).json({
         success: false,
         error: 'Este usuario ya está en tu lista de familia',
@@ -316,11 +330,93 @@ export const addFamilyMember = async (req, res) => {
       });
     }
 
-    // Agregar el miembro
+    // Obtener la lista de familiares del usuario encontrado
+    const foundUserDocRef = doc(collection(firestore, 'users'), foundUserId);
+    const foundUserDoc = await getDoc(foundUserDocRef);
+    
+    if (!foundUserDoc.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario encontrado no tiene perfil completo',
+        errorCode: 'FOUND_USER_INCOMPLETE'
+      });
+    }
+
+    const foundUserFamilyMembers = foundUserDoc.data().familyMembers || [];
+
+    // Crear el grupo completo de familiares (unión de ambos grupos + los dos usuarios)
+    // Esta es la lista MAESTRA que contiene TODOS los miembros del grupo
+    const allFamilyMembers = new Set([
+      ...userFamilyMembers,
+      ...foundUserFamilyMembers,
+      userId,        // El usuario actual
+      foundUserId    // El usuario encontrado
+    ]);
+    
+    // Esta es la lista completa del grupo (incluyendo a todos)
+    const completeGroupList = Array.from(allFamilyMembers);
+    
+    console.log('Grupo completo de familiares:', completeGroupList);
+    console.log('Usuario actual:', userId);
+    console.log('Usuario encontrado:', foundUserId);
+
+    // Función helper para obtener la lista de un usuario (sin incluirse a sí mismo)
+    const getFamilyListForUser = (targetUserId) => {
+      return completeGroupList.filter(id => id !== targetUserId);
+    };
+
+    // Actualizar la lista del usuario actual (sin incluirse a sí mismo)
+    const userFamilyList = getFamilyListForUser(userId);
+    console.log(`Lista para usuario ${userId}:`, userFamilyList);
     await updateDoc(userDocRef, {
-      familyMembers: arrayUnion(foundUserId),
+      familyMembers: userFamilyList,
       updatedAt: new Date().toISOString()
     });
+
+    // Actualizar la lista del usuario encontrado (sin incluirse a sí mismo)
+    const foundUserFamilyList = getFamilyListForUser(foundUserId);
+    console.log(`Lista para usuario ${foundUserId}:`, foundUserFamilyList);
+    await updateDoc(foundUserDocRef, {
+      familyMembers: foundUserFamilyList,
+      updatedAt: new Date().toISOString()
+    });
+
+    // Sincronizar todos los demás miembros del grupo para que todos tengan la misma lista
+    const syncPromises = completeGroupList.map(async (memberId) => {
+      if (memberId === userId || memberId === foundUserId) {
+        // Ya actualizados arriba
+        return;
+      }
+      
+      try {
+        const memberDocRef = doc(collection(firestore, 'users'), memberId);
+        const memberDoc = await getDoc(memberDocRef);
+        
+        if (memberDoc.exists()) {
+          // Crear la lista sincronizada para este miembro (sin incluirse a sí mismo)
+          const memberSyncList = getFamilyListForUser(memberId);
+          console.log(`Sincronizando miembro ${memberId} con lista:`, memberSyncList);
+          await updateDoc(memberDocRef, {
+            familyMembers: memberSyncList,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (syncError) {
+        console.error(`Error al sincronizar miembro ${memberId}:`, syncError);
+        // Continuar con los demás miembros aunque falle uno
+      }
+    });
+
+    // Esperar a que todas las sincronizaciones terminen antes de responder
+    await Promise.all(syncPromises);
+    console.log('Sincronización completa finalizada');
+    
+    // Verificar que las actualizaciones se guardaron correctamente
+    const verifyUserDoc = await getDoc(userDocRef);
+    const verifyFoundUserDoc = await getDoc(foundUserDocRef);
+    console.log('=== VERIFICACIÓN POST-SINCRONIZACIÓN ===');
+    console.log(`Usuario ${userId} tiene familiares:`, verifyUserDoc.data()?.familyMembers || []);
+    console.log(`Usuario ${foundUserId} tiene familiares:`, verifyFoundUserDoc.data()?.familyMembers || []);
 
     res.json({
       success: true,
@@ -343,6 +439,7 @@ export const addFamilyMember = async (req, res) => {
 
 /**
  * Elimina un miembro de la familia
+ * También elimina la relación bidireccional y sincroniza el grupo
  */
 export const removeFamilyMember = async (req, res) => {
   try {
@@ -368,10 +465,81 @@ export const removeFamilyMember = async (req, res) => {
       });
     }
 
+    const userData = userDoc.data();
+    const userFamilyMembers = userData.familyMembers || [];
+
+    if (!userFamilyMembers.includes(memberId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Este usuario no está en tu lista de familia',
+        errorCode: 'MEMBER_NOT_FOUND'
+      });
+    }
+
+    // Obtener la lista actual de familiares del miembro a eliminar
+    const memberToRemoveDocRef = doc(collection(firestore, 'users'), memberId);
+    const memberToRemoveDoc = await getDoc(memberToRemoveDocRef);
+    
+    let memberToRemoveFamilyMembers = [];
+    if (memberToRemoveDoc.exists()) {
+      memberToRemoveFamilyMembers = memberToRemoveDoc.data().familyMembers || [];
+    }
+
+    // Crear el grupo completo actual (unión de ambos grupos + los dos usuarios)
+    const currentGroup = new Set([
+      ...userFamilyMembers,
+      ...memberToRemoveFamilyMembers,
+      userId,
+      memberId
+    ]);
+    
+    // Remover el miembro que se está eliminando del grupo
+    currentGroup.delete(memberId);
+    
+    // Esta es la nueva lista maestra del grupo (sin el miembro eliminado)
+    const newCompleteGroupList = Array.from(currentGroup);
+    
+    console.log('Nuevo grupo después de eliminar:', newCompleteGroupList);
+    console.log('Usuario actual:', userId);
+    console.log('Miembro eliminado:', memberId);
+
+    // Función helper para obtener la lista de un usuario (sin incluirse a sí mismo)
+    const getFamilyListForUser = (targetUserId) => {
+      return newCompleteGroupList.filter(id => id !== targetUserId);
+    };
+
+    // Actualizar la lista del usuario actual (sin incluirse a sí mismo y sin el eliminado)
+    const userNewFamilyList = getFamilyListForUser(userId);
+    console.log(`Nueva lista para usuario ${userId}:`, userNewFamilyList);
     await updateDoc(userDocRef, {
-      familyMembers: arrayRemove(memberId),
+      familyMembers: userNewFamilyList,
       updatedAt: new Date().toISOString()
     });
+
+    // Sincronizar todos los demás miembros del grupo para que todos tengan la misma lista
+    const syncPromises = newCompleteGroupList.map(async (remainingMemberId) => {
+      try {
+        const remainingMemberDocRef = doc(collection(firestore, 'users'), remainingMemberId);
+        const remainingMemberDoc = await getDoc(remainingMemberDocRef);
+        
+        if (remainingMemberDoc.exists()) {
+          // Crear la lista sincronizada para este miembro (sin incluirse a sí mismo)
+          const remainingMemberSyncList = getFamilyListForUser(remainingMemberId);
+          console.log(`Sincronizando miembro ${remainingMemberId} con lista:`, remainingMemberSyncList);
+          await updateDoc(remainingMemberDocRef, {
+            familyMembers: remainingMemberSyncList,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (syncError) {
+        console.error(`Error al sincronizar miembro ${remainingMemberId}:`, syncError);
+        // Continuar con los demás miembros aunque falle uno
+      }
+    });
+
+    // Esperar a que todas las sincronizaciones terminen antes de responder
+    await Promise.all(syncPromises);
+    console.log('Sincronización completa finalizada después de eliminar');
 
     res.json({
       success: true
