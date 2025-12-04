@@ -105,6 +105,13 @@ export interface IFamilyGroupRepository {
   updateGroupMemberRole(groupId: string, memberId: string, role: 'admin' | 'member'): Promise<FamilyGroupResult>;
 
   /**
+   * Permite a un usuario unirse a un grupo familiar usando el código del grupo
+   * @param shareCode Código del grupo (6 caracteres)
+   * @returns Resultado de la operación con el grupo
+   */
+  joinFamilyGroupByCode(shareCode: string): Promise<FamilyGroupResult>;
+
+  /**
    * Permite a un usuario salir de un grupo familiar
    * @param groupId ID del grupo
    * @returns Resultado de la operación

@@ -54,11 +54,13 @@ service cloud.firestore {
     
     // Reglas para la colección 'familyGroups'
     match /familyGroups/{groupId} {
-      // LEER: Si está autenticado y es miembro del grupo
-      // También permitir lectura si no hay auth (para consultas desde el backend)
-      // El backend valida el token en el middleware antes de hacer las consultas
+      // LEER: 
+      // - Si está autenticado y es miembro del grupo, O
+      // - Si está autenticado (para buscar grupos por shareCode), O
+      // - Si no hay auth (backend - el backend valida tokens antes)
       allow read: if (isAuthenticated() && 
                      request.auth.uid in resource.data.members) ||
+                     isAuthenticated() ||
                      request.auth == null;
       
       // CREAR: Solo si está autenticado y se incluye a sí mismo como miembro
@@ -72,10 +74,16 @@ service cloud.firestore {
                        request.resource.data.shareCode.size() == 6 &&
                        request.resource.data.members is list;
       
-      // ACTUALIZAR: Si está autenticado y es miembro del grupo
-      // Solo admins pueden cambiar roles y agregar/eliminar miembros
-      allow update: if isAuthenticated() && 
-                       request.auth.uid in resource.data.members;
+      // ACTUALIZAR: 
+      // - Si está autenticado y es miembro del grupo, O
+      // - Si está autenticado y se está agregando a sí mismo, O
+      // - Si no hay auth (backend - el backend valida tokens antes)
+      allow update: if (isAuthenticated() && 
+                       request.auth.uid in resource.data.members) ||
+                       (isAuthenticated() && 
+                        !(request.auth.uid in resource.data.members) &&
+                        request.auth.uid in request.resource.data.members) ||
+                       request.auth == null;
       
       // ELIMINAR: Solo si está autenticado y es el creador o un admin
       allow delete: if isAuthenticated() && 

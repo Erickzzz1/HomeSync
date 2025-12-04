@@ -114,8 +114,13 @@ class ApiService {
 
       const data = await response.json();
 
-      // Si la respuesta no es exitosa, lanzar error con el mensaje de la API
+      // Si la respuesta no es exitosa, retornar los datos para que el repositorio maneje el error
+      // Esto permite manejar códigos de estado específicos como 409 (conflicto)
       if (!response.ok) {
+        // Para errores 409 (conflicto), retornar los datos en lugar de lanzar error
+        if (response.status === 409) {
+          return data;
+        }
         const errorMessage = data.error || data.message || 'Error en la petición';
         const error = new Error(errorMessage);
         // Agregar información adicional al error

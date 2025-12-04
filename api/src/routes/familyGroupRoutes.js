@@ -10,8 +10,9 @@ import {
   addGroupMember,
   removeGroupMember,
   updateGroupMemberRole,
-  deleteFamilyGroup,
-  leaveFamilyGroup
+  joinFamilyGroupByCode,
+  leaveFamilyGroup,
+  deleteFamilyGroup
 } from '../controllers/familyGroupController.js';
 import { verifyToken } from '../middleware/auth.js';
 
@@ -20,6 +21,7 @@ const router = express.Router();
 // Todas las rutas requieren autenticación
 // Rutas más específicas primero
 router.post('/', verifyToken, createFamilyGroup);
+router.post('/join', verifyToken, joinFamilyGroupByCode);
 router.get('/', verifyToken, getMyFamilyGroups);
 router.post('/:groupId/members', verifyToken, addGroupMember);
 router.delete('/:groupId/members', verifyToken, removeGroupMember);

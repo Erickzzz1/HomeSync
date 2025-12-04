@@ -700,6 +700,159 @@ export const deleteFamilyGroup = async (req, res) => {
 };
 
 /**
+ * Permite a un usuario unirse a un grupo familiar usando el código del grupo
+ */
+export const joinFamilyGroupByCode = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { shareCode } = req.body;
+
+    console.log('Intentando unirse a grupo con código:', shareCode, 'Usuario:', userId);
+
+    if (!shareCode || typeof shareCode !== 'string' || shareCode.length !== 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'El código del grupo debe tener 6 caracteres',
+        errorCode: 'INVALID_SHARE_CODE'
+      });
+    }
+
+    // Buscar grupo con ese shareCode
+    const groupsRef = collection(firestore, COLLECTION_NAME);
+    const q = query(groupsRef, where('shareCode', '==', shareCode.toUpperCase()));
+    
+    console.log('Buscando grupo con shareCode:', shareCode.toUpperCase());
+    const querySnapshot = await getDocs(q);
+    console.log('Resultados de búsqueda:', querySnapshot.size);
+
+    if (querySnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'Código de grupo inválido',
+        errorCode: 'GROUP_SHARE_CODE_NOT_FOUND'
+      });
+    }
+
+    // Obtener el grupo encontrado
+    const groupDoc = querySnapshot.docs[0];
+    const groupId = groupDoc.id;
+    const groupData = groupDoc.data();
+
+    // Verificar que el usuario no esté ya en el grupo
+    if (groupData.members && groupData.members.includes(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya eres miembro de este grupo',
+        errorCode: 'ALREADY_A_MEMBER'
+      });
+    }
+
+    // Obtener información del usuario que se une
+    const joiningUserDocRef = doc(collection(firestore, 'users'), userId);
+    const joiningUserDoc = await getDoc(joiningUserDocRef);
+    const joiningUserName = joiningUserDoc.exists() 
+      ? (joiningUserDoc.data().displayName || joiningUserDoc.data().email || 'Un usuario')
+      : 'Un usuario';
+
+    // Obtener roles actuales
+    const groupRoles = groupData.roles || {};
+
+    // El nuevo miembro será 'member' por defecto
+    groupRoles[userId] = 'member';
+
+    // Agregar el miembro al grupo
+    const groupDocRef = doc(collection(firestore, COLLECTION_NAME), groupId);
+    console.log('Actualizando grupo con nuevo miembro:', {
+      groupId,
+      userId,
+      currentMembers: groupData.members?.length || 0
+    });
+    
+    try {
+      await updateDoc(groupDocRef, {
+        members: arrayUnion(userId),
+        roles: groupRoles,
+        updatedAt: new Date().toISOString()
+      });
+      console.log('Grupo actualizado exitosamente');
+    } catch (updateError) {
+      console.error('Error al actualizar el grupo:', updateError);
+      console.error('Detalles del error:', {
+        message: updateError.message,
+        code: updateError.code,
+        stack: updateError.stack
+      });
+      throw updateError; // Re-lanzar el error para que se capture en el catch principal
+    }
+
+    // Obtener todos los miembros del grupo (excepto el que se une)
+    const membersToNotify = groupData.members || [];
+
+    // Crear mensajes de notificación para todos los miembros existentes
+    const groupNotificationRef = collection(firestore, 'groupNotifications');
+    const notificationPromises = membersToNotify.map(memberId => 
+      addDoc(groupNotificationRef, {
+        userId: memberId,
+        groupId: groupId,
+        groupName: groupData.name,
+        type: 'member_added',
+        message: `${joiningUserName} se ha unido al grupo "${groupData.name}"`,
+        adminId: userId,
+        adminName: joiningUserName,
+        createdAt: new Date().toISOString(),
+        read: false
+      })
+    );
+
+    // Enviar notificaciones push a todos los miembros existentes
+    const pushNotificationPromises = membersToNotify.map(memberId =>
+      sendNotificationToUser(
+        memberId,
+        'Nuevo miembro en el grupo',
+        `${joiningUserName} se ha unido al grupo "${groupData.name}"`,
+        {
+          type: 'group_member_added',
+          groupId: groupId,
+          groupName: groupData.name,
+          adminId: userId
+        }
+      ).catch(err => {
+        console.error(`Error al enviar notificación push a ${memberId}:`, err);
+        return null; // No fallar toda la operación si una notificación falla
+      })
+    );
+
+    // Esperar a que se creen los mensajes y se envíen las notificaciones
+    // Usar Promise.allSettled para que no falle si alguna notificación falla
+    try {
+      await Promise.all(notificationPromises);
+      await Promise.all(pushNotificationPromises);
+    } catch (notificationError) {
+      console.error('Error al crear/enviar notificaciones (no crítico):', notificationError);
+      // No fallar toda la operación si las notificaciones fallan
+    }
+
+    res.json({
+      success: true,
+      group: {
+        id: groupId,
+        name: groupData.name,
+        shareCode: groupData.shareCode
+      },
+      message: `Te has unido al grupo "${groupData.name}" correctamente`
+    });
+  } catch (error) {
+    console.error('Error al unirse al grupo:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({
+      success: false,
+      error: 'Error al unirse al grupo: ' + (error.message || 'Error desconocido'),
+      errorCode: 'JOIN_GROUP_ERROR'
+    });
+  }
+};
+
+/**
  * Permite a un usuario salir de un grupo familiar
  */
 export const leaveFamilyGroup = async (req, res) => {

@@ -30,6 +30,8 @@ import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { syncReminders } from '../../services/ReminderService';
 import CategorySelector from '../../components/CategorySelector';
 import { getSavedCategories, saveCategories } from '../../services/CategoryService';
+import ConflictResolutionModal from '../../components/ConflictResolutionModal';
+import { ConflictInfo, createConflictInfo, ConflictResolution } from '../../services/ConflictResolutionService';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -76,6 +78,8 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     dueDate?: string;
     priority?: string;
   }>({});
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
+  const [showConflictModal, setShowConflictModal] = useState(false);
 
   const taskRepository = new TaskRepository();
   const familyGroupRepository = new FamilyGroupRepository();
@@ -258,20 +262,42 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setIsSaving(true);
     dispatch(setLoading(true));
 
-    const result = await taskRepository.updateTask(task.id, {
+    // Preparar datos de actualización incluyendo la versión actual
+    const updateData = {
       title,
       description,
       assignedTo,
       dueDate,
       priority,
-      categories: categories.length > 0 ? categories : []
-    });
+      categories: categories.length > 0 ? categories : [],
+      version: task.version || 1 // Incluir versión para detección de conflictos
+    };
+
+    const result = await taskRepository.updateTask(task.id, updateData);
 
     setIsSaving(false);
     dispatch(setLoading(false));
 
+    // Si hay un conflicto, mostrar el modal de resolución
+    if (!result.success && result.errorCode === 'CONFLICT' && result.conflict) {
+      const localTask = { ...task };
+      const localChanges = updateData;
+      const conflict = createConflictInfo(
+        result.conflict.serverTask,
+        localTask,
+        localChanges,
+        result.conflict.lastModifiedByName
+      );
+      setConflictInfo(conflict);
+      setShowConflictModal(true);
+      return;
+    }
+
     if (result.success && result.task) {
       dispatch(updateTaskRedux(result.task));
+      
+      // Actualizar la tarea local con la nueva versión
+      const updatedTask = { ...task, ...result.task };
       
       // Guardar las categorías usadas para reutilización futura
       if (categories.length > 0) {
@@ -305,6 +331,63 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setValidationErrors({});
     setIsEditing(false);
     setShowDatePicker(false);
+  };
+
+  /**
+   * Resuelve un conflicto aplicando la resolución elegida
+   */
+  const handleResolveConflict = async (resolution: ConflictResolution, resolvedData: any) => {
+    if (!conflictInfo) return;
+
+    setShowConflictModal(false);
+    setIsSaving(true);
+    dispatch(setLoading(true));
+
+    // Actualizar con los datos resueltos
+    const result = await taskRepository.updateTask(task.id, resolvedData);
+
+    setIsSaving(false);
+    dispatch(setLoading(false));
+
+    if (result.success && result.task) {
+      dispatch(updateTaskRedux(result.task));
+      
+      // Actualizar el estado local con la tarea resuelta
+      const updatedTask = { ...task, ...result.task };
+      
+      // Si se eligió usar el servidor, actualizar los campos locales
+      if (resolution === 'useServer') {
+        setTitle(result.task.title);
+        setDescription(result.task.description);
+        setAssignedTo(result.task.assignedTo);
+        setDueDate(result.task.dueDate);
+        setSelectedDate(result.task.dueDate ? new Date(result.task.dueDate) : null);
+        setPriority(result.task.priority);
+        setCategories(result.task.categories || []);
+      }
+      
+      // Sincronizar recordatorios
+      await syncReminders([result.task], []);
+      
+      setIsEditing(false);
+      setConflictInfo(null);
+      showSuccess('Conflicto resuelto y tarea actualizada', 'Éxito', () => {
+        hideAlert();
+        navigation.goBack();
+      }, true, 2000);
+    } else {
+      showError(result.error || 'No se pudo resolver el conflicto');
+      setConflictInfo(null);
+    }
+  };
+
+  /**
+   * Cancela la resolución de conflicto
+   */
+  const handleCancelConflict = () => {
+    setShowConflictModal(false);
+    setConflictInfo(null);
+    setIsEditing(false);
   };
 
   /**
@@ -742,6 +825,12 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         cancelText={alertState.cancelText}
         autoClose={alertState.autoClose}
         autoCloseDelay={alertState.autoCloseDelay}
+      />
+      <ConflictResolutionModal
+        visible={showConflictModal}
+        conflict={conflictInfo}
+        onResolve={handleResolveConflict}
+        onCancel={handleCancelConflict}
       />
     </SafeAreaView>
   );

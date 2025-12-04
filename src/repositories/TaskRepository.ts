@@ -29,6 +29,13 @@ interface ApiTaskResponse {
   tasks?: TaskModel[];
   error?: string;
   errorCode?: string;
+  conflict?: {
+    currentVersion: number;
+    expectedVersion: number;
+    lastModifiedBy: string;
+    lastModifiedByName: string;
+    serverTask: TaskModel;
+  };
 }
 
 class TaskRepository implements ITaskRepository {
@@ -226,11 +233,26 @@ class TaskRepository implements ITaskRepository {
           ? data.categories.filter(cat => cat && cat.trim()).map(cat => cat.trim())
           : [];
       }
+      
+      // Incluir versión si está disponible (para detección de conflictos)
+      if (data.version !== undefined) {
+        updateData.version = data.version;
+      }
 
       // Enviar petición a la API
       const response = await ApiService.put<ApiTaskResponse>(`/api/tasks/${taskId}`, updateData);
 
       if (!response.success) {
+        // Si hay un conflicto, retornar información del conflicto
+        if (response.errorCode === 'CONFLICT' && response.conflict) {
+          return {
+            success: false,
+            error: response.error || 'Conflicto de versión detectado',
+            errorCode: 'CONFLICT',
+            conflict: response.conflict
+          };
+        }
+        
         return {
           success: false,
           error: response.error || 'Error al actualizar la tarea',

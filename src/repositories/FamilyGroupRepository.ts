@@ -257,6 +257,46 @@ class FamilyGroupRepository implements IFamilyGroupRepository {
   }
 
   /**
+   * Permite a un usuario unirse a un grupo familiar usando el código del grupo
+   */
+  async joinFamilyGroupByCode(shareCode: string): Promise<FamilyGroupResult> {
+    try {
+      if (!shareCode || shareCode.length !== 6) {
+        return {
+          success: false,
+          error: 'El código del grupo debe tener 6 caracteres',
+          errorCode: 'INVALID_SHARE_CODE'
+        };
+      }
+
+      const response = await ApiService.post<ApiFamilyGroupResponse>('/api/family-groups/join', {
+        shareCode: shareCode.toUpperCase()
+      });
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al unirse al grupo',
+          errorCode: response.errorCode
+        };
+      }
+
+      return {
+        success: true,
+        group: response.group,
+        message: response.message
+      };
+    } catch (error: any) {
+      console.error('Error al unirse al grupo:', error);
+      return {
+        success: false,
+        error: error.message || 'Error al unirse al grupo',
+        errorCode: 'JOIN_GROUP_ERROR'
+      };
+    }
+  }
+
+  /**
    * Permite a un usuario salir de un grupo familiar
    */
   async leaveFamilyGroup(groupId: string): Promise<FamilyGroupResult> {

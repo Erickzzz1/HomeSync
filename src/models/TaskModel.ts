@@ -72,6 +72,17 @@ export interface TaskModel {
   updatedAt: string;
 
   /**
+   * Versión de la tarea para detección de conflictos
+   * Se incrementa cada vez que se actualiza la tarea
+   */
+  version?: number;
+
+  /**
+   * ID del usuario que realizó la última modificación
+   */
+  lastModifiedBy?: string;
+
+  /**
    * Etiquetas/Categorías de la tarea (opcional)
    * Array de strings que permiten organizar y filtrar tareas
    */
@@ -105,5 +116,6 @@ export interface UpdateTaskData {
   priority?: TaskPriority;
   isCompleted?: boolean;
   categories?: string[];
+  version?: number; // Versión esperada para detección de conflictos
 }
 

@@ -110,6 +110,8 @@ export const createTask = async (req, res) => {
       categories: Array.isArray(categories) ? categories.filter(cat => cat && cat.trim()).map(cat => cat.trim()) : [],
       createdBy: userId,
       isCompleted: false,
+      version: 1, // Versión inicial
+      lastModifiedBy: userId, // El creador es el primer modificador
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -127,6 +129,8 @@ export const createTask = async (req, res) => {
       categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
         ? data.categories 
         : undefined,
+      version: data.version || 1,
+      lastModifiedBy: data.lastModifiedBy || data.createdBy,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
@@ -224,6 +228,8 @@ export const getTasks = async (req, res) => {
         categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
           ? data.categories 
           : undefined,
+        version: data.version || 1,
+        lastModifiedBy: data.lastModifiedBy || data.createdBy,
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
       });
@@ -241,6 +247,8 @@ export const getTasks = async (req, res) => {
             categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
               ? data.categories 
               : undefined,
+            version: data.version || 1,
+            lastModifiedBy: data.lastModifiedBy || data.createdBy,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
             updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
           });
@@ -310,6 +318,8 @@ export const getTaskById = async (req, res) => {
       categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
         ? data.categories 
         : undefined,
+      version: data.version || 1,
+      lastModifiedBy: data.lastModifiedBy || data.createdBy,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
@@ -383,9 +393,57 @@ export const updateTask = async (req, res) => {
       }
     }
 
+    // Verificar conflictos de versión
+    const currentVersion = taskData.version || 1;
+    const expectedVersion = updateData.version;
+    
+    // Si se proporciona una versión esperada, verificar que coincida
+    if (expectedVersion !== undefined && expectedVersion !== currentVersion) {
+      // Hay un conflicto - la tarea fue modificada por otro usuario
+      const lastModifiedBy = taskData.lastModifiedBy || taskData.createdBy;
+      
+      // Obtener información del usuario que modificó la tarea
+      let modifierName = 'Otro usuario';
+      try {
+        if (lastModifiedBy) {
+          const modifierDocRef = doc(firestore, 'users', lastModifiedBy);
+          const modifierDoc = await getDoc(modifierDocRef);
+          if (modifierDoc.exists()) {
+            modifierName = modifierDoc.data().displayName || modifierDoc.data().email || 'Otro usuario';
+          }
+        }
+      } catch (error) {
+        console.error('Error al obtener información del modificador:', error);
+      }
+      
+      return res.status(409).json({
+        success: false,
+        error: 'La tarea fue modificada por otro usuario. Por favor, recarga la tarea y vuelve a intentar.',
+        errorCode: 'CONFLICT',
+        conflict: {
+          currentVersion: currentVersion,
+          expectedVersion: expectedVersion,
+          lastModifiedBy: lastModifiedBy,
+          lastModifiedByName: modifierName,
+          serverTask: {
+            id: taskId,
+            ...taskData,
+            categories: taskData.categories && Array.isArray(taskData.categories) && taskData.categories.length > 0 
+              ? taskData.categories 
+              : undefined,
+            createdAt: taskData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            updatedAt: taskData.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            version: currentVersion
+          }
+        }
+      });
+    }
+
     // Preparar datos de actualización
     const updateFields = {
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      version: (currentVersion || 1) + 1, // Incrementar versión
+      lastModifiedBy: userId // Guardar quién hizo la última modificación
     };
 
     if (updateData.title !== undefined) {
@@ -426,6 +484,8 @@ export const updateTask = async (req, res) => {
       categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
         ? data.categories 
         : undefined,
+      version: data.version || 1,
+      lastModifiedBy: data.lastModifiedBy || data.createdBy,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };

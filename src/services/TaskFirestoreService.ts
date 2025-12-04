@@ -35,6 +35,8 @@ const convertFirestoreTask = (doc: any): TaskModel => {
     createdBy: data.createdBy || '',
     reminderTime: data.reminderTime || undefined,
     categories: Array.isArray(data.categories) ? data.categories : undefined,
+    version: data.version || 1,
+    lastModifiedBy: data.lastModifiedBy || data.createdBy || '',
     createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
     updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
   };

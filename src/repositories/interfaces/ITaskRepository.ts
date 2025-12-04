@@ -16,6 +16,13 @@ export interface TaskOperationResult {
   tasks?: TaskModel[];
   error?: string;
   errorCode?: string;
+  conflict?: {
+    currentVersion: number;
+    expectedVersion: number;
+    lastModifiedBy: string;
+    lastModifiedByName: string;
+    serverTask: TaskModel;
+  };
 }
 
 /**

@@ -44,6 +44,9 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
   const [isLoadingShareCode, setIsLoadingShareCode] = useState(true);
   const [notifications, setNotifications] = useState<GroupNotification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinGroupCode, setJoinGroupCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
   const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
 
   const familyGroupRepository = new FamilyGroupRepository();
@@ -229,6 +232,38 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('FamilyGroupDetail', { groupId });
   };
 
+  /**
+   * Maneja unirse a un grupo usando el código
+   */
+  const handleJoinGroup = async () => {
+    if (!joinGroupCode || joinGroupCode.length !== 6) {
+      showError('El código del grupo debe tener 6 caracteres');
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      const result = await familyGroupRepository.joinFamilyGroupByCode(joinGroupCode.toUpperCase());
+      if (result.success && result.group) {
+        setJoinGroupCode('');
+        setShowJoinModal(false);
+        await loadGroups();
+        showSuccess(result.message || `Te has unido al grupo "${result.group.name}" correctamente`);
+        // Navegar al detalle del grupo recién unido
+        if (result.group.id) {
+          navigation.navigate('FamilyGroupDetail', { groupId: result.group.id });
+        }
+      } else {
+        showError(result.error || 'Error al unirse al grupo');
+      }
+    } catch (error) {
+      console.error('Error al unirse al grupo:', error);
+      showError('Error al unirse al grupo');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -309,13 +344,21 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Botón para crear nuevo grupo */}
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setShowCreateModal(true)}
-        >
-          <Text style={styles.createButtonText}>+ Crear Nuevo Grupo</Text>
-        </TouchableOpacity>
+        {/* Botones de acción */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.joinButton]}
+            onPress={() => setShowJoinModal(true)}
+          >
+            <Text style={styles.actionButtonText}>🔗 Unirse a un Grupo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.createButton]}
+            onPress={() => setShowCreateModal(true)}
+          >
+            <Text style={styles.actionButtonText}>+ Crear Nuevo Grupo</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Lista de grupos */}
         {isLoading ? (
@@ -352,6 +395,64 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal para unirse a un grupo */}
+      <Modal
+        visible={showJoinModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowJoinModal(false);
+          setJoinGroupCode('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Unirse a un Grupo</Text>
+            <Text style={styles.modalDescription}>
+              Ingresa el código del grupo al que deseas unirte
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="ABC123"
+              placeholderTextColor="#999"
+              value={joinGroupCode}
+              onChangeText={(text) => {
+                const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+                setJoinGroupCode(cleaned);
+              }}
+              maxLength={6}
+              autoCapitalize="characters"
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowJoinModal(false);
+                  setJoinGroupCode('');
+                }}
+                disabled={isJoining}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCreate, isJoining && styles.modalButtonDisabled]}
+                onPress={handleJoinGroup}
+                disabled={isJoining || joinGroupCode.length !== 6}
+              >
+                {isJoining ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonCreateText}>Unirse</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal para crear grupo */}
       <Modal
@@ -552,20 +653,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600'
   },
-  createButton: {
-    backgroundColor: '#4A90E2',
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20
+  },
+  actionButton: {
+    flex: 1,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3
   },
-  createButtonText: {
+  joinButton: {
+    backgroundColor: '#28A745'
+  },
+  createButton: {
+    backgroundColor: '#4A90E2'
+  },
+  actionButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'
