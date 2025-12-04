@@ -25,13 +25,14 @@ export function generateShareCode() {
  * Verifica si un shareCode ya existe en Firestore
  * @param {Firestore} firestore - Instancia de Firestore
  * @param {string} shareCode - Código a verificar
+ * @param {string} collectionName - Nombre de la colección a verificar (default: 'users')
  * @returns {Promise<boolean>} true si existe, false si no
  */
-export async function shareCodeExists(firestore, shareCode) {
+export async function shareCodeExists(firestore, shareCode, collectionName = 'users') {
   try {
     const { collection, query, where, getDocs } = await import('firebase/firestore');
-    const usersRef = collection(firestore, 'users');
-    const q = query(usersRef, where('shareCode', '==', shareCode));
+    const ref = collection(firestore, collectionName);
+    const q = query(ref, where('shareCode', '==', shareCode));
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
   } catch (error) {
@@ -45,14 +46,25 @@ export async function shareCodeExists(firestore, shareCode) {
  * Genera un shareCode único (verifica que no exista)
  * @param {Firestore} firestore - Instancia de Firestore
  * @param {number} maxAttempts - Número máximo de intentos (default: 10)
+ * @param {string|string[]} collectionNames - Nombre(s) de colección(es) a verificar (default: 'users')
  * @returns {Promise<string>} ShareCode único
  */
-export async function generateUniqueShareCode(firestore, maxAttempts = 10) {
+export async function generateUniqueShareCode(firestore, maxAttempts = 10, collectionNames = 'users') {
+  const collections = Array.isArray(collectionNames) ? collectionNames : [collectionNames];
   let attempts = 0;
   
   while (attempts < maxAttempts) {
     const code = generateShareCode();
-    const exists = await shareCodeExists(firestore, code);
+    let exists = false;
+    
+    // Verificar en todas las colecciones especificadas
+    for (const collectionName of collections) {
+      const existsInCollection = await shareCodeExists(firestore, code, collectionName);
+      if (existsInCollection) {
+        exists = true;
+        break;
+      }
+    }
     
     if (!exists) {
       return code;

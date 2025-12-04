@@ -57,7 +57,10 @@ class TaskRepository implements ITaskRepository {
         assignedTo: taskData.assignedTo.trim(),
         dueDate: taskData.dueDate,
         priority: taskData.priority,
-        reminderTime: taskData.reminderTime || undefined
+        reminderTime: taskData.reminderTime || undefined,
+        categories: taskData.categories && Array.isArray(taskData.categories) 
+          ? taskData.categories.filter(cat => cat && cat.trim()).map(cat => cat.trim())
+          : []
       });
 
       if (!response.success) {
@@ -216,6 +219,12 @@ class TaskRepository implements ITaskRepository {
       }
       if (data.isCompleted !== undefined) {
         updateData.isCompleted = data.isCompleted;
+      }
+      if (data.categories !== undefined) {
+        // Enviar array vacío si no hay categorías, para permitir limpiar categorías
+        updateData.categories = Array.isArray(data.categories) 
+          ? data.categories.filter(cat => cat && cat.trim()).map(cat => cat.trim())
+          : [];
       }
 
       // Enviar petición a la API

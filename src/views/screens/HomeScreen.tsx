@@ -53,9 +53,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         (response) => {
           // Usuario tocó la notificación
           const data = response.notification.request.content.data;
-          if (data?.type === 'task_assigned') {
-            // Navegar a la lista de tareas para ver la nueva tarea asignada
+          if (data?.type === 'task_assigned' || data?.type === 'task_completed' || 
+              data?.type === 'task_reassigned' || data?.type === 'task_date_changed') {
+            // Navegar a la lista de tareas para ver la tarea
             navigation.navigate('TaskList');
+          } else if (data?.type === 'group_member_added' || data?.type === 'group_member_removed' || 
+                     data?.type === 'group_member_left' || data?.type === 'group_admin_assigned' || 
+                     data?.type === 'group_deleted') {
+            // Navegar a grupos familiares para ver la notificación
+            navigation.navigate('FamilyGroups');
           }
         }
       );
@@ -144,12 +150,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.tasksButtonText}>📝 Ver Mis Tareas</Text>
         </TouchableOpacity>
 
-        {/* Botón de Mi Familia */}
+        {/* Botón de Grupos Familiares */}
         <TouchableOpacity
           style={styles.familyButton}
-          onPress={() => navigation.navigate('Family')}
+          onPress={() => navigation.navigate('FamilyGroups')}
         >
-          <Text style={styles.familyButtonText}>👨‍👩‍👧‍👦 Mi Familia</Text>
+          <Text style={styles.familyButtonText}>👨‍👩‍👧‍👦 Mis Grupos Familiares</Text>
         </TouchableOpacity>
 
         {/* Botón de Cerrar Sesión */}

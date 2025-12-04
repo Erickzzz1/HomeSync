@@ -1,7 +1,7 @@
 /**
- * FamilyScreen - Pantalla de gestión de familia
+ * FamilyGroupDetailScreen - Pantalla de detalle de un grupo familiar
  * 
- * HU-05: Permite ver el shareCode del usuario y agregar miembros a la familia
+ * Muestra los miembros del grupo y permite agregar/eliminar miembros
  */
 
 import React, { useState, useEffect } from 'react';
@@ -17,23 +17,22 @@ import {
   Alert,
   Platform
 } from 'react-native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { StackNavigationProp, RouteProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
-import FamilyRepository from '../../repositories/FamilyRepository';
-import { FamilyMember } from '../../repositories/interfaces/IFamilyRepository';
+import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
+import { FamilyGroup, FamilyGroupMember } from '../../repositories/interfaces/IFamilyGroupRepository';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { useAppSelector } from '../../store/hooks';
+
 // Clipboard - usar API nativa según plataforma
 const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
     if (Platform.OS === 'web') {
-      // En web, usar la API del navegador
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
         return true;
       }
-      // Fallback para navegadores antiguos
       if (typeof document !== 'undefined') {
         const textArea = document.createElement('textarea');
         textArea.value = text;
@@ -47,13 +46,11 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
       }
       return false;
     } else {
-      // En móvil (React Native), usar Clipboard de React Native
       try {
         const { Clipboard } = require('react-native');
         Clipboard.setString(text);
         return true;
       } catch {
-        // Si no está disponible, retornar false para mostrar alerta
         return false;
       }
     }
@@ -63,51 +60,158 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
   }
 };
 
-type FamilyScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Family'>;
+type FamilyGroupDetailScreenNavigationProp = StackNavigationProp<AppStackParamList, 'FamilyGroupDetail'>;
+type FamilyGroupDetailScreenRouteProp = RouteProp<AppStackParamList, 'FamilyGroupDetail'>;
 
 interface Props {
-  navigation: FamilyScreenNavigationProp;
+  navigation: FamilyGroupDetailScreenNavigationProp;
+  route: FamilyGroupDetailScreenRouteProp;
 }
 
-const FamilyScreen: React.FC<Props> = ({ navigation }) => {
-  const [shareCode, setShareCode] = useState<string>('');
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [newShareCode, setNewShareCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-  const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
-
-  const familyRepository = new FamilyRepository();
+const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { groupId } = route.params;
   const { user } = useAppSelector((state) => state.auth);
   
-  // Obtener el rol del usuario actual
-  const getCurrentUserRole = (): 'admin' | 'member' => {
-    if (!user?.uid) return 'member';
-    const currentUserMember = familyMembers.find(m => m.uid === user.uid);
-    return currentUserMember?.role || 'member';
+  const [group, setGroup] = useState<FamilyGroup | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newShareCode, setNewShareCode] = useState('');
+  const { alertState, showSuccess, showError, showConfirm, hideAlert } = useCustomAlert();
+
+  const familyGroupRepository = new FamilyGroupRepository();
+
+  /**
+   * Carga el grupo al montar
+   */
+  useEffect(() => {
+    loadGroup();
+  }, [groupId]);
+
+  /**
+   * Recarga el grupo cuando la pantalla recibe foco
+   */
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadGroup();
+    });
+
+    return unsubscribe;
+  }, [navigation, groupId]);
+
+  /**
+   * Carga los detalles del grupo
+   */
+  const loadGroup = async () => {
+    setIsLoading(true);
+    try {
+      const result = await familyGroupRepository.getFamilyGroup(groupId);
+      if (result.success && result.group) {
+        setGroup(result.group);
+      } else {
+        showError(result.error || 'Error al cargar el grupo');
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Error al cargar grupo:', error);
+      showError('Error al cargar el grupo');
+      navigation.goBack();
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
-  const isCurrentUserAdmin = (): boolean => {
-    return getCurrentUserRole() === 'admin';
+
+  /**
+   * Copia el shareCode del grupo al portapapeles
+   */
+  const copyShareCode = async () => {
+    if (!group) return;
+    const success = await copyToClipboard(group.shareCode);
+    if (success) {
+      showSuccess('Código copiado al portapapeles', 'Éxito');
+    } else {
+      Alert.alert('Código del Grupo', group.shareCode, [{ text: 'OK' }]);
+    }
   };
-  
+
+  /**
+   * Agrega un nuevo miembro al grupo
+   */
+  const handleAddMember = async () => {
+    if (!newShareCode || newShareCode.trim().length !== 6) {
+      showError('El código debe tener exactamente 6 caracteres');
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const result = await familyGroupRepository.addGroupMember(groupId, newShareCode.toUpperCase().trim());
+      if (result.success && result.member) {
+        setNewShareCode('');
+        await loadGroup();
+        showSuccess(
+          `${result.member.displayName || 'Usuario'} agregado al grupo`,
+          'Miembro Agregado'
+        );
+      } else {
+        showError(result.error || 'Error al agregar el miembro');
+      }
+    } catch (error) {
+      console.error('Error al agregar miembro:', error);
+      showError('Error al agregar el miembro');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  /**
+   * Elimina un miembro del grupo
+   */
+  const handleRemoveMember = (member: FamilyGroupMember) => {
+    showConfirm(
+      `¿Estás seguro que deseas eliminar a ${member.displayName || member.email} del grupo?`,
+      'Eliminar Miembro',
+      async () => {
+        setIsLoading(true);
+        try {
+          console.log('Intentando eliminar miembro:', member.uid);
+          const result = await familyGroupRepository.removeGroupMember(groupId, member.uid);
+          console.log('Resultado de eliminar miembro:', result);
+          if (result.success) {
+            await loadGroup();
+            showSuccess('Miembro eliminado del grupo', 'Eliminado');
+          } else {
+            showError(result.error || 'Error al eliminar el miembro');
+          }
+        } catch (error) {
+          console.error('Error al eliminar miembro:', error);
+          showError('Error al eliminar el miembro');
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      undefined,
+      'Eliminar',
+      'Cancelar'
+    );
+  };
+
   /**
    * Cambia el rol de un miembro
    */
-  const handleChangeRole = async (member: FamilyMember, newRole: 'admin' | 'member') => {
-    if (!isCurrentUserAdmin()) {
+  const handleChangeRole = async (member: FamilyGroupMember, newRole: 'admin' | 'member') => {
+    if (!group) return;
+    
+    const currentUserRole = group.roles?.[user?.uid || ''] || 'member';
+    if (currentUserRole !== 'admin') {
       showError('Solo los administradores pueden cambiar roles');
       return;
     }
     
     setIsLoading(true);
     try {
-      const result = await familyRepository.updateMemberRole(member.uid, newRole);
+      const result = await familyGroupRepository.updateGroupMemberRole(groupId, member.uid, newRole);
       if (result.success) {
-        // Actualizar la lista local
-        setFamilyMembers(familyMembers.map(m => 
-          m.uid === member.uid ? { ...m, role: newRole } : m
-        ));
+        await loadGroup();
         showSuccess(`Rol de ${member.displayName || member.email} actualizado a ${newRole === 'admin' ? 'Administrador' : 'Miembro'}`);
       } else {
         showError(result.error || 'Error al actualizar el rol');
@@ -121,154 +225,139 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
-   * Carga el shareCode y los familiares al montar
+   * Permite al usuario salir del grupo
    */
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  /**
-   * Carga el shareCode y los familiares
-   */
-  const loadData = async () => {
-    setIsLoadingMembers(true);
-    try {
-      // Cargar shareCode
-      const shareCodeResult = await familyRepository.getMyShareCode();
-      if (shareCodeResult.success && shareCodeResult.shareCode) {
-        setShareCode(shareCodeResult.shareCode);
-      }
-
-      // Cargar familiares
-      const membersResult = await familyRepository.getFamilyMembers();
-      if (membersResult.success && membersResult.familyMembers) {
-        setFamilyMembers(membersResult.familyMembers);
-      }
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-    } finally {
-      setIsLoadingMembers(false);
-    }
-  };
-
-  /**
-   * Copia el shareCode al portapapeles
-   */
-  const copyShareCode = async () => {
-    const success = await copyToClipboard(shareCode);
-    if (success) {
-      showSuccess('Código copiado al portapapeles', 'Éxito');
-    } else {
-      // Mostrar alerta con el código para copiar manualmente
-      Alert.alert('Código de Compartir', shareCode, [{ text: 'OK' }]);
-    }
-  };
-
-  /**
-   * Agrega un nuevo miembro a la familia
-   */
-  const handleAddMember = async () => {
-    if (!newShareCode || newShareCode.trim().length !== 6) {
-      showError('El código debe tener exactamente 6 caracteres');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const result = await familyRepository.addFamilyMember(newShareCode.toUpperCase().trim());
-
-      if (result.success && result.member) {
-        setNewShareCode('');
-        // Recargar la lista completa desde el servidor para obtener todos los miembros sincronizados
-        await loadData();
-        showSuccess(
-          `${result.member.displayName || 'Usuario'} agregado a tu familia`,
-          'Miembro Agregado'
-        );
-      } else {
-        showError(result.error || 'Error al agregar el miembro');
-      }
-    } catch (error) {
-      console.error('Error al agregar miembro:', error);
-      showError('Error al agregar el miembro');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  /**
-   * Elimina un miembro de la familia
-   */
-  const handleRemoveMember = (member: FamilyMember) => {
-    Alert.alert(
-      'Eliminar Miembro',
-      `¿Estás seguro que deseas eliminar a ${member.displayName || member.email} de tu familia?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoading(true);
-            try {
-              const result = await familyRepository.removeFamilyMember(member.uid);
-              if (result.success) {
-                // Recargar la lista completa desde el servidor para obtener la lista sincronizada
-                await loadData();
-                showSuccess('Miembro eliminado de tu familia', 'Eliminado');
-              } else {
-                showError(result.error || 'Error al eliminar el miembro');
-              }
-            } catch (error) {
-              console.error('Error al eliminar miembro:', error);
-              showError('Error al eliminar el miembro');
-            } finally {
-              setIsLoading(false);
-            }
+  const handleLeaveGroup = () => {
+    if (!group) return;
+    
+    showConfirm(
+      `¿Estás seguro que deseas abandonar el grupo "${group.name}"? Los demás miembros serán notificados.`,
+      'Abandonar Grupo',
+      async () => {
+        setIsLoading(true);
+        try {
+          const result = await familyGroupRepository.leaveFamilyGroup(groupId);
+          if (result.success) {
+            showSuccess('Has abandonado el grupo correctamente');
+            navigation.goBack();
+          } else {
+            showError(result.error || 'Error al abandonar el grupo');
           }
+        } catch (error) {
+          console.error('Error al abandonar grupo:', error);
+          showError('Error al abandonar el grupo');
+        } finally {
+          setIsLoading(false);
         }
-      ]
+      },
+      undefined,
+      'Abandonar',
+      'Cancelar'
     );
   };
+
+  /**
+   * Elimina el grupo
+   */
+  const handleDeleteGroup = () => {
+    if (!group) return;
+    
+    showConfirm(
+      `¿Estás seguro que deseas eliminar el grupo "${group.name}"? Esta acción no se puede deshacer.`,
+      'Eliminar Grupo',
+      async () => {
+        setIsLoading(true);
+        try {
+          console.log('Intentando eliminar grupo:', groupId);
+          const result = await familyGroupRepository.deleteFamilyGroup(groupId);
+          console.log('Resultado de eliminar grupo:', result);
+          if (result.success) {
+            showSuccess('Grupo eliminado correctamente');
+            navigation.goBack();
+          } else {
+            showError(result.error || 'Error al eliminar el grupo');
+          }
+        } catch (error) {
+          console.error('Error al eliminar grupo:', error);
+          showError('Error al eliminar el grupo');
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      undefined,
+      'Eliminar',
+      'Cancelar'
+    );
+  };
+
+  if (isLoading && !group) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loaderText}>Cargando grupo...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!group) {
+    return null;
+  }
+
+  const currentUserRole = group.roles?.[user?.uid || ''] || 'member';
+  const isCurrentUserAdmin = currentUserRole === 'admin';
+  const isCurrentUserCreator = group.createdBy === user?.uid;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Botón para ir a grupos familiares */}
-        <TouchableOpacity
-          style={styles.groupsButton}
-          onPress={() => navigation.navigate('FamilyGroups')}
-        >
-          <Text style={styles.groupsButtonText}>👨‍👩‍👧‍👦 Mis Grupos Familiares</Text>
-          <Text style={styles.groupsButtonSubtext}>
-            Crea y gestiona grupos familiares con nombres
-          </Text>
-        </TouchableOpacity>
-
-        {/* Sección de Mi ShareCode */}
+        {/* Información del grupo */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mi Código de Compartir</Text>
-          <Text style={styles.sectionDescription}>
-            Comparte este código con tus familiares para que puedan agregarte a su lista
-          </Text>
+          <Text style={styles.sectionTitle}>{group.name}</Text>
           
-          {isLoadingMembers ? (
-            <ActivityIndicator size="small" color="#4A90E2" style={styles.loader} />
-          ) : (
-            <View style={styles.shareCodeContainer}>
-              <Text style={styles.shareCode}>{shareCode || 'Cargando...'}</Text>
+          {/* ShareCode del grupo */}
+          <View style={styles.shareCodeContainer}>
+            <Text style={styles.shareCodeLabel}>Código del Grupo</Text>
+            <View style={styles.shareCodeRow}>
+              <Text style={styles.shareCode}>{group.shareCode}</Text>
               <TouchableOpacity
                 style={styles.copyButton}
                 onPress={copyShareCode}
-                disabled={!shareCode}
               >
                 <Text style={styles.copyButtonText}>📋 Copiar</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.shareCodeDescription}>
+              Comparte este código para que otros puedan unirse al grupo
+            </Text>
+          </View>
+
+          {/* Botón salir del grupo (visible para todos) */}
+          <TouchableOpacity
+            style={[styles.leaveGroupButton, isLoading && styles.buttonDisabled]}
+            onPress={handleLeaveGroup}
+            disabled={isLoading}
+          >
+            <Text style={styles.leaveGroupButtonText}>🚪 Salir del Grupo</Text>
+          </TouchableOpacity>
+
+          {/* Botón eliminar grupo (solo para creador o admin) */}
+          {(isCurrentUserAdmin || isCurrentUserCreator) && (
+            <TouchableOpacity
+              style={[styles.deleteGroupButton, isLoading && styles.buttonDisabled]}
+              onPress={() => {
+                console.log('Botón eliminar grupo presionado. isAdmin:', isCurrentUserAdmin, 'isCreator:', isCurrentUserCreator);
+                handleDeleteGroup();
+              }}
+              disabled={isLoading}
+            >
+              <Text style={styles.deleteGroupButtonText}>🗑️ Eliminar Grupo</Text>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Sección de Agregar Miembro */}
+        {/* Agregar miembro */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Agregar Miembro</Text>
           <Text style={styles.sectionDescription}>
@@ -282,20 +371,19 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
               placeholderTextColor="#999"
               value={newShareCode}
               onChangeText={(text) => {
-                // Solo permitir alfanuméricos y máximo 6 caracteres
                 const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
                 setNewShareCode(cleaned);
               }}
               maxLength={6}
               autoCapitalize="characters"
-              editable={!isLoading}
+              editable={!isAdding}
             />
             <TouchableOpacity
-              style={[styles.addButton, isLoading && styles.buttonDisabled]}
+              style={[styles.addButton, isAdding && styles.buttonDisabled]}
               onPress={handleAddMember}
-              disabled={isLoading || newShareCode.length !== 6}
+              disabled={isAdding || newShareCode.length !== 6}
             >
-              {isLoading ? (
+              {isAdding ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.addButtonText}>Agregar</Text>
@@ -304,26 +392,24 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Lista de Familiares */}
+        {/* Lista de miembros */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mi Familia ({familyMembers.length})</Text>
+          <Text style={styles.sectionTitle}>
+            Miembros ({group.members.length})
+          </Text>
           
-          {isLoadingMembers ? (
-            <ActivityIndicator size="small" color="#4A90E2" style={styles.loader} />
-          ) : familyMembers.length === 0 ? (
+          {group.members.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
-                No tienes miembros en tu familia aún
-              </Text>
-              <Text style={styles.emptyStateSubtext}>
-                Agrega miembros usando sus códigos de compartir
+                No hay miembros en el grupo aún
               </Text>
             </View>
           ) : (
             <View style={styles.membersList}>
-              {familyMembers.map((member) => {
+              {group.members.map((member) => {
                 const isCurrentUser = member.uid === user?.uid;
-                const canChangeRole = isCurrentUserAdmin() && !isCurrentUser;
+                const canChangeRole = isCurrentUserAdmin && !isCurrentUser;
+                const canRemoveMember = isCurrentUserAdmin && !isCurrentUser;
                 
                 return (
                   <View key={member.uid} style={styles.memberCard}>
@@ -346,7 +432,6 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
                         </View>
                       </View>
                       <Text style={styles.memberEmail}>{member.email}</Text>
-                      <Text style={styles.memberCode}>Código: {member.shareCode}</Text>
                       
                       {/* Selector de rol (solo para admins y no para sí mismo) */}
                       {canChangeRole && (
@@ -387,10 +472,14 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
                         </View>
                       )}
                     </View>
-                    {!isCurrentUser && (
+                    {/* Botón eliminar solo visible para admins y no para sí mismo */}
+                    {canRemoveMember && (
                       <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => handleRemoveMember(member)}
+                        style={[styles.removeButton, isLoading && styles.buttonDisabled]}
+                        onPress={() => {
+                          console.log('Botón eliminar presionado para:', member.uid);
+                          handleRemoveMember(member);
+                        }}
                         disabled={isLoading}
                       >
                         <Text style={styles.removeButtonText}>Eliminar</Text>
@@ -403,6 +492,7 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
       </ScrollView>
+
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -427,27 +517,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20
   },
-  groupsButton: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+  loaderContainer: {
+    flex: 1,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    justifyContent: 'center'
   },
-  groupsButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4
-  },
-  groupsButtonSubtext: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 12
+  loaderText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666'
   },
   section: {
     backgroundColor: '#fff',
@@ -472,13 +550,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 20
   },
-  loader: {
-    marginVertical: 20
-  },
   shareCodeContainer: {
+    marginTop: 12
+  },
+  shareCodeLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8
+  },
+  shareCodeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12
+    gap: 12,
+    marginBottom: 8
   },
   shareCode: {
     flex: 1,
@@ -501,6 +585,35 @@ const styles = StyleSheet.create({
     borderRadius: 8
   },
   copyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  shareCodeDescription: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center'
+  },
+  leaveGroupButton: {
+    marginTop: 16,
+    backgroundColor: '#FF9500',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  leaveGroupButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  deleteGroupButton: {
+    marginTop: 12,
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  deleteGroupButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600'
@@ -546,12 +659,6 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 8,
-    textAlign: 'center'
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#999',
     textAlign: 'center'
   },
   membersList: {
@@ -605,6 +712,11 @@ const styles = StyleSheet.create({
   roleBadgeTextAdmin: {
     color: '#8B6914'
   },
+  memberEmail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8
+  },
   roleSelector: {
     marginTop: 8,
     paddingTop: 8,
@@ -642,16 +754,6 @@ const styles = StyleSheet.create({
   roleButtonTextActive: {
     color: '#fff'
   },
-  memberEmail: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4
-  },
-  memberCode: {
-    fontSize: 12,
-    color: '#999',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
-  },
   removeButton: {
     backgroundColor: '#FF3B30',
     paddingHorizontal: 16,
@@ -665,5 +767,5 @@ const styles = StyleSheet.create({
   }
 });
 
-export default FamilyScreen;
+export default FamilyGroupDetailScreen;
 

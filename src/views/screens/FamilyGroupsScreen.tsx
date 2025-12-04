@@ -1,0 +1,712 @@
+/**
+ * FamilyGroupsScreen - Pantalla de lista de grupos familiares
+ * 
+ * Muestra todos los grupos familiares del usuario y permite crear nuevos grupos
+ */
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Modal
+} from 'react-native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AppStackParamList } from '../../navigation/AppNavigator';
+import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
+import FamilyRepository from '../../repositories/FamilyRepository';
+import GroupNotificationRepository from '../../repositories/GroupNotificationRepository';
+import { FamilyGroupSummary } from '../../repositories/interfaces/IFamilyGroupRepository';
+import { GroupNotification } from '../../repositories/interfaces/IGroupNotificationRepository';
+import CustomAlert from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { Platform } from 'react-native';
+
+type FamilyGroupsScreenNavigationProp = StackNavigationProp<AppStackParamList, 'FamilyGroups'>;
+
+interface Props {
+  navigation: FamilyGroupsScreenNavigationProp;
+}
+
+const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
+  const [groups, setGroups] = useState<FamilyGroupSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [isLoadingShareCode, setIsLoadingShareCode] = useState(true);
+  const [notifications, setNotifications] = useState<GroupNotification[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
+
+  const familyGroupRepository = new FamilyGroupRepository();
+  const familyRepository = new FamilyRepository();
+  const groupNotificationRepository = new GroupNotificationRepository();
+
+  /**
+   * Carga los grupos, el shareCode y las notificaciones al montar
+   */
+  useEffect(() => {
+    loadGroups();
+    loadShareCode();
+    loadNotifications();
+  }, []);
+
+  /**
+   * Recarga los grupos, el shareCode y las notificaciones cuando la pantalla recibe foco
+   */
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadGroups();
+      loadShareCode();
+      loadNotifications();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  /**
+   * Carga la lista de grupos
+   */
+  const loadGroups = async () => {
+    setIsLoading(true);
+    try {
+      const result = await familyGroupRepository.getMyFamilyGroups();
+      if (result.success && result.groups) {
+        setGroups(result.groups);
+      } else {
+        showError(result.error || 'Error al cargar los grupos');
+      }
+    } catch (error) {
+      console.error('Error al cargar grupos:', error);
+      showError('Error al cargar los grupos');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Carga el shareCode del usuario
+   */
+  const loadShareCode = async () => {
+    setIsLoadingShareCode(true);
+    try {
+      const result = await familyRepository.getMyShareCode();
+      if (result.success && result.shareCode) {
+        setShareCode(result.shareCode);
+      } else {
+        console.warn('No se pudo obtener el shareCode:', result.error);
+      }
+    } catch (error) {
+      console.error('Error al cargar shareCode:', error);
+    } finally {
+      setIsLoadingShareCode(false);
+    }
+  };
+
+  /**
+   * Carga las notificaciones de grupos
+   */
+  const loadNotifications = async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const result = await groupNotificationRepository.getMyGroupNotifications();
+      if (result.success && result.notifications) {
+        console.log('Notificaciones cargadas:', result.notifications);
+        setNotifications(result.notifications);
+      } else {
+        console.warn('No se pudieron cargar las notificaciones:', result.error);
+      }
+    } catch (error) {
+      console.error('Error al cargar notificaciones:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  /**
+   * Elimina una notificación
+   */
+  const handleDeleteNotification = async (notificationId: string) => {
+    try {
+      const result = await groupNotificationRepository.deleteGroupNotification(notificationId);
+      if (result.success) {
+        await loadNotifications();
+      } else {
+        showError(result.error || 'Error al eliminar la notificación');
+      }
+    } catch (error) {
+      console.error('Error al eliminar notificación:', error);
+      showError('Error al eliminar la notificación');
+    }
+  };
+
+  /**
+   * Copia el shareCode al portapapeles
+   */
+  const copyShareCode = async () => {
+    if (!shareCode) return;
+    
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareCode);
+          showSuccess('Código copiado al portapapeles', 'Éxito');
+          return;
+        }
+        if (typeof document !== 'undefined') {
+          const textArea = document.createElement('textarea');
+          textArea.value = shareCode;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          const success = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          if (success) {
+            showSuccess('Código copiado al portapapeles', 'Éxito');
+            return;
+          }
+        }
+      } else {
+        try {
+          const { Clipboard } = require('react-native');
+          Clipboard.setString(shareCode);
+          showSuccess('Código copiado al portapapeles', 'Éxito');
+          return;
+        } catch {
+          // Fallback
+        }
+      }
+      Alert.alert('Mi Código', shareCode, [{ text: 'OK' }]);
+    } catch (error) {
+      console.error('Error al copiar:', error);
+      Alert.alert('Mi Código', shareCode, [{ text: 'OK' }]);
+    }
+  };
+
+  /**
+   * Crea un nuevo grupo familiar
+   */
+  const handleCreateGroup = async () => {
+    if (!newGroupName || newGroupName.trim().length < 3) {
+      showError('El nombre del grupo debe tener al menos 3 caracteres');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const result = await familyGroupRepository.createFamilyGroup(newGroupName.trim());
+      if (result.success && result.group) {
+        setNewGroupName('');
+        setShowCreateModal(false);
+        await loadGroups();
+        showSuccess(`Grupo "${result.group.name}" creado correctamente`);
+        // Navegar al detalle del grupo recién creado
+        navigation.navigate('FamilyGroupDetail', { groupId: result.group.id });
+      } else {
+        showError(result.error || 'Error al crear el grupo');
+      }
+    } catch (error) {
+      console.error('Error al crear grupo:', error);
+      showError('Error al crear el grupo');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  /**
+   * Navega al detalle de un grupo
+   */
+  const navigateToGroupDetail = (groupId: string) => {
+    navigation.navigate('FamilyGroupDetail', { groupId });
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Notificaciones de grupos */}
+        {notifications.length > 0 && (
+          <View style={styles.notificationsSection}>
+            <Text style={styles.notificationsSectionTitle}>Notificaciones</Text>
+            {notifications.map((notification) => {
+              // Determinar el estilo según el tipo de notificación
+              let cardStyle = styles.notificationCard;
+              let textColor = '#856404';
+              
+              if (notification.type === 'member_added') {
+                cardStyle = [styles.notificationCard, styles.notificationCardAdded];
+                textColor = '#0C5460';
+              } else if (notification.type === 'member_removed') {
+                cardStyle = [styles.notificationCard, styles.notificationCardRemoved];
+                textColor = '#721C24';
+              } else if (notification.type === 'member_left') {
+                cardStyle = [styles.notificationCard, styles.notificationCardLeft];
+                textColor = '#856404';
+              } else if (notification.type === 'admin_assigned') {
+                cardStyle = [styles.notificationCard, styles.notificationCardAdmin];
+                textColor = '#0C5460';
+              } else if (notification.type === 'group_deleted') {
+                cardStyle = [styles.notificationCard, styles.notificationCardDeleted];
+                textColor = '#856404';
+              }
+
+              return (
+                <View key={notification.id} style={cardStyle}>
+                  <View style={styles.notificationContent}>
+                    <Text style={[styles.notificationMessage, { color: textColor }]}>
+                      {notification.message}
+                    </Text>
+                    <Text style={[styles.notificationDate, { color: textColor, opacity: 0.7 }]}>
+                      {new Date(notification.createdAt).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.notificationDeleteButton}
+                    onPress={() => handleDeleteNotification(notification.id)}
+                  >
+                    <Text style={[styles.notificationDeleteText, { color: textColor }]}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Sección de Mi ShareCode */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Mi Código de Compartir</Text>
+          <Text style={styles.sectionDescription}>
+            Comparte este código con otros usuarios para que puedan agregarte a sus grupos
+          </Text>
+          
+          {isLoadingShareCode ? (
+            <ActivityIndicator size="small" color="#4A90E2" style={styles.shareCodeLoader} />
+          ) : (
+            <View style={styles.shareCodeContainer}>
+              <Text style={styles.shareCode}>{shareCode || 'No disponible'}</Text>
+              <TouchableOpacity
+                style={styles.copyButton}
+                onPress={copyShareCode}
+                disabled={!shareCode}
+              >
+                <Text style={styles.copyButtonText}>📋 Copiar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Botón para crear nuevo grupo */}
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => setShowCreateModal(true)}
+        >
+          <Text style={styles.createButtonText}>+ Crear Nuevo Grupo</Text>
+        </TouchableOpacity>
+
+        {/* Lista de grupos */}
+        {isLoading ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#4A90E2" />
+            <Text style={styles.loaderText}>Cargando grupos...</Text>
+          </View>
+        ) : groups.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateEmoji}>👨‍👩‍👧‍👦</Text>
+            <Text style={styles.emptyStateTitle}>No tienes grupos familiares</Text>
+            <Text style={styles.emptyStateText}>
+              Crea un grupo para comenzar a organizar tareas con tu familia
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.groupsList}>
+            {groups.map((group) => (
+              <TouchableOpacity
+                key={group.id}
+                style={styles.groupCard}
+                onPress={() => navigateToGroupDetail(group.id)}
+              >
+                <View style={styles.groupCardContent}>
+                  <Text style={styles.groupName}>{group.name}</Text>
+                  <Text style={styles.groupMembersCount}>
+                    {group.membersCount} {group.membersCount === 1 ? 'miembro' : 'miembros'}
+                  </Text>
+                  <Text style={styles.groupCode}>Código: {group.shareCode}</Text>
+                </View>
+                <Text style={styles.groupArrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Modal para crear grupo */}
+      <Modal
+        visible={showCreateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Crear Nuevo Grupo</Text>
+            <Text style={styles.modalDescription}>
+              Ingresa un nombre para tu grupo familiar
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Ej: Familia Pérez, Casa Principal..."
+              placeholderTextColor="#999"
+              value={newGroupName}
+              onChangeText={setNewGroupName}
+              maxLength={50}
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowCreateModal(false);
+                  setNewGroupName('');
+                }}
+                disabled={isCreating}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCreate, isCreating && styles.modalButtonDisabled]}
+                onPress={handleCreateGroup}
+                disabled={isCreating || newGroupName.trim().length < 3}
+              >
+                {isCreating ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonCreateText}>Crear</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        onConfirm={alertState.onConfirm}
+        onCancel={hideAlert}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        autoClose={alertState.autoClose}
+        autoCloseDelay={alertState.autoCloseDelay}
+      />
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5'
+  },
+  scrollContent: {
+    padding: 20
+  },
+  notificationsSection: {
+    marginBottom: 20
+  },
+  notificationsSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF3CD',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  notificationCardAdded: {
+    backgroundColor: '#D1ECF1',
+    borderLeftColor: '#0D6EFD'
+  },
+  notificationCardRemoved: {
+    backgroundColor: '#F8D7DA',
+    borderLeftColor: '#DC3545'
+  },
+  notificationCardLeft: {
+    backgroundColor: '#FFE5CC',
+    borderLeftColor: '#FF9500'
+  },
+  notificationCardAdmin: {
+    backgroundColor: '#D1ECF1',
+    borderLeftColor: '#0D6EFD'
+  },
+  notificationCardDeleted: {
+    backgroundColor: '#FFF3CD',
+    borderLeftColor: '#FFC107'
+  },
+  notificationContent: {
+    flex: 1
+  },
+  notificationMessage: {
+    fontSize: 14,
+    color: '#856404',
+    marginBottom: 4,
+    lineHeight: 20
+  },
+  notificationDate: {
+    fontSize: 12,
+    color: '#856404',
+    opacity: 0.7
+  },
+  notificationDeleteButton: {
+    marginLeft: 12,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  notificationDeleteText: {
+    fontSize: 18,
+    color: '#856404',
+    fontWeight: 'bold'
+  },
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20
+  },
+  shareCodeLoader: {
+    marginVertical: 20
+  },
+  shareCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  shareCode: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4A90E2',
+    letterSpacing: 4,
+    textAlign: 'center',
+    backgroundColor: '#F0F7FF',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#4A90E2',
+    borderStyle: 'dashed'
+  },
+  copyButton: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 12
+  },
+  copyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  createButton: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  loaderContainer: {
+    padding: 40,
+    alignItems: 'center'
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666'
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center'
+  },
+  emptyStateEmoji: {
+    fontSize: 64,
+    marginBottom: 16
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center'
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20
+  },
+  groupsList: {
+    gap: 12
+  },
+  groupCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  groupCardContent: {
+    flex: 1
+  },
+  groupName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4
+  },
+  groupMembersCount: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4
+  },
+  groupCode: {
+    fontSize: 12,
+    color: '#999',
+    fontFamily: 'monospace'
+  },
+  groupArrow: {
+    fontSize: 24,
+    color: '#4A90E2',
+    marginLeft: 12
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    lineHeight: 20
+  },
+  modalInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#E0E0E0'
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center'
+  },
+  modalButtonCancel: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
+  },
+  modalButtonCreate: {
+    backgroundColor: '#4A90E2'
+  },
+  modalButtonDisabled: {
+    opacity: 0.6
+  },
+  modalButtonCancelText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  modalButtonCreateText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
+  }
+});
+
+export default FamilyGroupsScreen;
+

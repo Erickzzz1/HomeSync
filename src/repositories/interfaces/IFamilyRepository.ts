@@ -12,6 +12,7 @@ export interface FamilyMember {
   email: string | null;
   displayName: string | null;
   shareCode: string;
+  role?: 'admin' | 'member';
 }
 
 /**
@@ -55,5 +56,13 @@ export interface IFamilyRepository {
    * @returns Resultado de la operación
    */
   removeFamilyMember(memberId: string): Promise<FamilyResult>;
+
+  /**
+   * Actualiza el rol de un miembro de la familia (solo admins)
+   * @param memberId ID del miembro
+   * @param role Nuevo rol ('admin' o 'member')
+   * @returns Resultado de la operación
+   */
+  updateMemberRole(memberId: string, role: 'admin' | 'member'): Promise<FamilyResult>;
 }
 

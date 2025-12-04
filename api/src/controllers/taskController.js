@@ -24,11 +24,69 @@ import { sendNotificationToUser } from './notificationController.js';
 const COLLECTION_NAME = 'tasks';
 
 /**
+ * Verifica si un usuario tiene permisos para realizar una acción en una tarea
+ * @param {string} userId - ID del usuario
+ * @param {object} taskData - Datos de la tarea
+ * @param {string} action - Acción a verificar ('create', 'edit', 'delete', 'complete')
+ * @returns {Promise<{allowed: boolean, reason?: string}>}
+ */
+async function checkTaskPermission(userId, taskData, action) {
+  try {
+    // Obtener información del usuario
+    const userDocRef = doc(firestore, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      return { allowed: false, reason: 'Usuario no encontrado' };
+    }
+    
+    const userData = userDoc.data();
+    const familyRoles = userData.familyRoles || {};
+    const userRole = familyRoles[userId] || 'member';
+    const isAdmin = userRole === 'admin';
+    
+    // Verificar permisos según la acción
+    switch (action) {
+      case 'create':
+        // Todos pueden crear tareas (o solo admins si se configura así)
+        return { allowed: true };
+        
+      case 'edit':
+        // El creador o un admin pueden editar
+        if (taskData.createdBy === userId || isAdmin) {
+          return { allowed: true };
+        }
+        return { allowed: false, reason: 'Solo el creador o un administrador pueden editar esta tarea' };
+        
+      case 'delete':
+        // El creador o un admin pueden eliminar
+        if (taskData.createdBy === userId || isAdmin) {
+          return { allowed: true };
+        }
+        return { allowed: false, reason: 'Solo el creador o un administrador pueden eliminar esta tarea' };
+        
+      case 'complete':
+        // El asignado o un admin pueden completar
+        if (taskData.assignedTo === userId || isAdmin || taskData.createdBy === userId) {
+          return { allowed: true };
+        }
+        return { allowed: false, reason: 'Solo el asignado, el creador o un administrador pueden completar esta tarea' };
+        
+      default:
+        return { allowed: false, reason: 'Acción no válida' };
+    }
+  } catch (error) {
+    console.error('Error al verificar permisos:', error);
+    return { allowed: false, reason: 'Error al verificar permisos' };
+  }
+}
+
+/**
  * Crea una nueva tarea
  */
 export const createTask = async (req, res) => {
   try {
-    const { title, description, assignedTo, dueDate, priority, reminderTime } = req.body;
+    const { title, description, assignedTo, dueDate, priority, reminderTime, categories } = req.body;
     const userId = req.user.uid;
 
     // Validación
@@ -49,6 +107,7 @@ export const createTask = async (req, res) => {
       dueDate,
       priority,
       reminderTime: reminderTime || null, // Hora del recordatorio opcional
+      categories: Array.isArray(categories) ? categories.filter(cat => cat && cat.trim()).map(cat => cat.trim()) : [],
       createdBy: userId,
       isCompleted: false,
       createdAt: serverTimestamp(),
@@ -65,6 +124,9 @@ export const createTask = async (req, res) => {
     const task = {
       id: docRef.id,
       ...data,
+      categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
+        ? data.categories 
+        : undefined,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
@@ -159,6 +221,9 @@ export const getTasks = async (req, res) => {
       tasksMap.set(doc.id, {
         id: doc.id,
         ...data,
+        categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
+          ? data.categories 
+          : undefined,
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
       });
@@ -173,6 +238,9 @@ export const getTasks = async (req, res) => {
           tasksMap.set(doc.id, {
             id: doc.id,
             ...data,
+            categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
+              ? data.categories 
+              : undefined,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
             updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
           });
@@ -239,6 +307,9 @@ export const getTaskById = async (req, res) => {
     const task = {
       id: docSnapshot.id,
       ...data,
+      categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
+        ? data.categories 
+        : undefined,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
@@ -288,12 +359,28 @@ export const updateTask = async (req, res) => {
       });
     }
 
-    if (docSnapshot.data().createdBy !== userId) {
+    const taskData = docSnapshot.data();
+    
+    // Verificar permisos para editar
+    const permissionCheck = await checkTaskPermission(userId, taskData, 'edit');
+    if (!permissionCheck.allowed) {
       return res.status(403).json({
         success: false,
-        error: 'No tienes permisos para actualizar esta tarea',
+        error: permissionCheck.reason || 'No tienes permisos para actualizar esta tarea',
         errorCode: 'PERMISSION_DENIED'
       });
+    }
+    
+    // Si solo está cambiando isCompleted, verificar permisos de completar
+    if (updateData.isCompleted !== undefined && Object.keys(updateData).length === 1) {
+      const completePermission = await checkTaskPermission(userId, taskData, 'complete');
+      if (!completePermission.allowed) {
+        return res.status(403).json({
+          success: false,
+          error: completePermission.reason || 'No tienes permisos para completar esta tarea',
+          errorCode: 'PERMISSION_DENIED'
+        });
+      }
     }
 
     // Preparar datos de actualización
@@ -319,6 +406,13 @@ export const updateTask = async (req, res) => {
     if (updateData.isCompleted !== undefined) {
       updateFields.isCompleted = updateData.isCompleted;
     }
+    if (updateData.categories !== undefined) {
+      // Si es un array vacío, guardarlo como array vacío (no undefined)
+      // Esto permite "limpiar" las categorías de una tarea
+      updateFields.categories = Array.isArray(updateData.categories) 
+        ? updateData.categories.filter(cat => cat && cat.trim()).map(cat => cat.trim())
+        : (updateData.categories === null ? [] : []);
+    }
 
     // Actualizar en Firestore
     await updateDoc(taskDoc, updateFields);
@@ -329,9 +423,86 @@ export const updateTask = async (req, res) => {
     const task = {
       id: updatedDoc.id,
       ...data,
+      categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
+        ? data.categories 
+        : undefined,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
+
+    // Enviar notificaciones según el tipo de actualización
+    try {
+      const originalData = docSnapshot.data();
+      
+      // Notificar si se completó la tarea
+      if (updateData.isCompleted === true && originalData.isCompleted === false) {
+        // Notificar al creador si no es quien completó
+        if (data.createdBy !== userId) {
+          const completerDocRef = doc(firestore, 'users', userId);
+          const completerDoc = await getDoc(completerDocRef);
+          const completerName = completerDoc.exists() 
+            ? (completerDoc.data().displayName || completerDoc.data().email || 'Un usuario')
+            : 'Un usuario';
+          
+          await sendNotificationToUser(
+            data.createdBy,
+            'Tarea completada',
+            `${completerName} completó la tarea: "${data.title}".`,
+            {
+              type: 'task_completed',
+              taskId: taskId,
+              completedBy: userId,
+              title: data.title
+            }
+          );
+        }
+      }
+      
+      // Notificar si se cambió la asignación
+      if (updateData.assignedTo && updateData.assignedTo !== originalData.assignedTo) {
+        const updaterDocRef = doc(firestore, 'users', userId);
+        const updaterDoc = await getDoc(updaterDocRef);
+        const updaterName = updaterDoc.exists() 
+          ? (updaterDoc.data().displayName || updaterDoc.data().email || 'Un usuario')
+          : 'Un usuario';
+        
+        await sendNotificationToUser(
+          updateData.assignedTo,
+          'Tarea reasignada',
+          `${updaterName} te asignó la tarea: "${data.title}".`,
+          {
+            type: 'task_reassigned',
+            taskId: taskId,
+            assignedBy: userId,
+            title: data.title
+          }
+        );
+      }
+      
+      // Notificar si se cambió la fecha de vencimiento (solo si es importante)
+      if (updateData.dueDate && updateData.dueDate !== originalData.dueDate) {
+        const updaterDocRef = doc(firestore, 'users', userId);
+        const updaterDoc = await getDoc(updaterDocRef);
+        const updaterName = updaterDoc.exists() 
+          ? (updaterDoc.data().displayName || updaterDoc.data().email || 'Un usuario')
+          : 'Un usuario';
+        
+        await sendNotificationToUser(
+          data.assignedTo,
+          'Fecha de tarea actualizada',
+          `${updaterName} cambió la fecha de la tarea: "${data.title}".`,
+          {
+            type: 'task_date_changed',
+            taskId: taskId,
+            updatedBy: userId,
+            title: data.title
+          }
+        );
+      }
+    } catch (notificationError) {
+      // No fallar la actualización si falla la notificación
+      console.error('Error al enviar notificación:', notificationError);
+    }
 
     res.json({
       success: true,
@@ -367,10 +538,14 @@ export const deleteTask = async (req, res) => {
       });
     }
 
-    if (docSnapshot.data().createdBy !== userId) {
+    const taskData = docSnapshot.data();
+    
+    // Verificar permisos para eliminar
+    const permissionCheck = await checkTaskPermission(userId, taskData, 'delete');
+    if (!permissionCheck.allowed) {
       return res.status(403).json({
         success: false,
-        error: 'No tienes permisos para eliminar esta tarea',
+        error: permissionCheck.reason || 'No tienes permisos para eliminar esta tarea',
         errorCode: 'PERMISSION_DENIED'
       });
     }
@@ -461,6 +636,24 @@ function validateCreateTaskData(data) {
     return 'La prioridad debe ser Alta, Media o Baja';
   }
 
+  // Validar categorías si se proporcionan
+  if (data.categories !== undefined) {
+    if (!Array.isArray(data.categories)) {
+      return 'Las categorías deben ser un array';
+    }
+    if (data.categories.length > 10) {
+      return 'No se pueden agregar más de 10 categorías por tarea';
+    }
+    for (const cat of data.categories) {
+      if (typeof cat !== 'string' || !cat.trim()) {
+        return 'Todas las categorías deben ser strings no vacíos';
+      }
+      if (cat.trim().length > 30) {
+        return 'Cada categoría no puede exceder 30 caracteres';
+      }
+    }
+  }
+
   return null;
 }
 
@@ -503,6 +696,24 @@ function validateUpdateTaskData(data) {
     const validPriorities = ['Alta', 'Media', 'Baja'];
     if (!validPriorities.includes(data.priority)) {
       return 'La prioridad debe ser Alta, Media o Baja';
+    }
+  }
+
+  // Validar categorías si se proporcionan
+  if (data.categories !== undefined) {
+    if (!Array.isArray(data.categories)) {
+      return 'Las categorías deben ser un array';
+    }
+    if (data.categories.length > 10) {
+      return 'No se pueden agregar más de 10 categorías por tarea';
+    }
+    for (const cat of data.categories) {
+      if (typeof cat !== 'string' || !cat.trim()) {
+        return 'Todas las categorías deben ser strings no vacíos';
+      }
+      if (cat.trim().length > 30) {
+        return 'Cada categoría no puede exceder 30 caracteres';
+      }
     }
   }
 

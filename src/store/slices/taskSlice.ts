@@ -34,17 +34,45 @@ const taskSlice = createSlice({
   reducers: {
     /**
      * Establece la lista de tareas
+     * Deduplica por ID para evitar duplicados
      */
     setTasks: (state, action: PayloadAction<TaskModel[]>) => {
-      state.tasks = action.payload;
+      // Usar Map para deduplicar por ID
+      const tasksMap = new Map<string, TaskModel>();
+      
+      // Agregar tareas existentes primero (para mantener orden si es necesario)
+      state.tasks.forEach(task => {
+        if (!tasksMap.has(task.id)) {
+          tasksMap.set(task.id, task);
+        }
+      });
+      
+      // Agregar nuevas tareas (sobrescribirán duplicados)
+      action.payload.forEach(task => {
+        tasksMap.set(task.id, task);
+      });
+      
+      // Convertir Map a Array
+      state.tasks = Array.from(tasksMap.values());
       state.error = null;
     },
 
     /**
      * Agrega una nueva tarea
+     * Verifica que no exista antes de agregar
      */
     addTask: (state, action: PayloadAction<TaskModel>) => {
-      state.tasks.unshift(action.payload);
+      // Solo agregar si no existe
+      const exists = state.tasks.some(task => task.id === action.payload.id);
+      if (!exists) {
+        state.tasks.unshift(action.payload);
+      } else {
+        // Si existe, actualizarla en lugar de duplicarla
+        const index = state.tasks.findIndex(task => task.id === action.payload.id);
+        if (index !== -1) {
+          state.tasks[index] = action.payload;
+        }
+      }
       state.error = null;
     },
 

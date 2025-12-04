@@ -120,6 +120,53 @@ class FamilyRepository implements IFamilyRepository {
   }
 
   /**
+   * Actualiza el rol de un miembro de la familia (solo admins)
+   */
+  async updateMemberRole(memberId: string, role: 'admin' | 'member'): Promise<FamilyResult> {
+    try {
+      if (!memberId || !role) {
+        return {
+          success: false,
+          error: 'ID del miembro y rol son requeridos',
+          errorCode: 'MEMBER_ID_AND_ROLE_REQUIRED'
+        };
+      }
+
+      if (!['admin', 'member'].includes(role)) {
+        return {
+          success: false,
+          error: 'El rol debe ser "admin" o "member"',
+          errorCode: 'INVALID_ROLE'
+        };
+      }
+
+      const response = await ApiService.put<ApiFamilyResponse>('/api/family/members/role', {
+        memberId,
+        role
+      });
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Error al actualizar el rol',
+          errorCode: response.errorCode
+        };
+      }
+
+      return {
+        success: true
+      };
+    } catch (error: any) {
+      console.error('Error al actualizar rol:', error);
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar el rol',
+        errorCode: 'UPDATE_ROLE_ERROR'
+      };
+    }
+  }
+
+  /**
    * Elimina un miembro de la familia
    */
   async removeFamilyMember(memberId: string): Promise<FamilyResult> {

@@ -18,6 +18,9 @@ import TaskListScreen from '../views/screens/TaskListScreen';
 import CreateTaskScreen from '../views/screens/CreateTaskScreen';
 import TaskDetailScreen from '../views/screens/TaskDetailScreen';
 import FamilyScreen from '../views/screens/FamilyScreen';
+import FamilyGroupsScreen from '../views/screens/FamilyGroupsScreen';
+import FamilyGroupDetailScreen from '../views/screens/FamilyGroupDetailScreen';
+import CalendarScreen from '../views/screens/CalendarScreen';
 import { TaskModel } from '../models/TaskModel';
 
 /**
@@ -34,6 +37,9 @@ export type AppStackParamList = {
   CreateTask: undefined;
   TaskDetail: { task: TaskModel };
   Family: undefined;
+  FamilyGroups: undefined;
+  FamilyGroupDetail: { groupId: string };
+  Calendar: undefined;
 };
 
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -96,6 +102,21 @@ const AppNavigator = () => {
         name="Family" 
         component={FamilyScreen}
         options={{ title: 'Mi Familia' }}
+      />
+      <AppStack.Screen 
+        name="FamilyGroups" 
+        component={FamilyGroupsScreen}
+        options={{ title: 'Mis Grupos Familiares' }}
+      />
+      <AppStack.Screen 
+        name="FamilyGroupDetail" 
+        component={FamilyGroupDetailScreen}
+        options={{ title: 'Detalle del Grupo' }}
+      />
+      <AppStack.Screen 
+        name="Calendar" 
+        component={CalendarScreen}
+        options={{ title: 'Calendario' }}
       />
     </AppStack.Navigator>
   );

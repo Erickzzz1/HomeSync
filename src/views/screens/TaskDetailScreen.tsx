@@ -22,10 +22,14 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateTask as updateTaskRedux, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
 import FamilyRepository from '../../repositories/FamilyRepository';
+import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
 import { TaskModel, TaskPriority } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { syncReminders } from '../../services/ReminderService';
+import CategorySelector from '../../components/CategorySelector';
+import { getSavedCategories, saveCategories } from '../../services/CategoryService';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -63,6 +67,8 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [categories, setCategories] = useState<string[]>(task.categories || []);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<{
     title?: string;
     description?: string;
@@ -72,6 +78,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   }>({});
 
   const taskRepository = new TaskRepository();
+  const familyGroupRepository = new FamilyGroupRepository();
   const taskViewModel = new TaskViewModel();
 
   /**
@@ -100,6 +107,35 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error al cargar familiares para mapeo de nombres:', error);
     }
+
+    // Cargar miembros de grupos familiares
+    try {
+      const groupsResult = await familyGroupRepository.getMyFamilyGroups();
+      if (groupsResult.success && groupsResult.groups) {
+        // Obtener miembros de cada grupo
+        const groupPromises = groupsResult.groups.map(async (group) => {
+          const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
+          if (groupDetailResult.success && groupDetailResult.group) {
+            return groupDetailResult.group.members.map(member => ({
+              uid: member.uid,
+              name: member.displayName || member.email || 'Sin nombre'
+            }));
+          }
+          return [];
+        });
+
+        const allGroupMembersArrays = await Promise.all(groupPromises);
+        const allGroupMembers = allGroupMembersArrays.flat();
+        
+        allGroupMembers.forEach((member) => {
+          if (member.uid && !nameMap.has(member.uid)) {
+            nameMap.set(member.uid, member.name);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error al cargar miembros de grupos para mapeo de nombres:', error);
+    }
     
     setUserNameMap(nameMap);
   }, [user?.uid, user?.displayName, user?.email]);
@@ -119,11 +155,81 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return userNameMap.get(assignedToUid) || assignedToUid;
   };
 
+  /**
+   * Obtiene el nombre del creador de la tarea
+   */
+  const getCreatorName = (createdByUid: string): string => {
+    if (!createdByUid) return 'Desconocido';
+    
+    // Si es el usuario actual
+    if (createdByUid === user?.uid) {
+      return 'Tú';
+    }
+    
+    // Buscar en el mapa de nombres
+    return userNameMap.get(createdByUid) || createdByUid;
+  };
+
   useEffect(() => {
     if (user?.uid) {
       loadUserNameMap();
+      loadAvailableCategories();
+      loadSavedCategories();
     }
   }, [user?.uid, loadUserNameMap]);
+
+  /**
+   * Carga las categorías guardadas localmente
+   */
+  const loadSavedCategories = async () => {
+    try {
+      const saved = await getSavedCategories();
+      // Combinar con las categorías de tareas existentes
+      const allCategories = new Set<string>();
+      saved.forEach(cat => allCategories.add(cat));
+      if (availableCategories.length > 0) {
+        availableCategories.forEach(cat => allCategories.add(cat));
+      }
+      setAvailableCategories(Array.from(allCategories).sort());
+    } catch (error) {
+      console.error('Error al cargar categorías guardadas:', error);
+    }
+  };
+
+  /**
+   * Carga las categorías disponibles de las tareas existentes
+   */
+  const loadAvailableCategories = async () => {
+    try {
+      if (!user?.uid) return;
+      
+      const result = await taskRepository.getTasks(user.uid);
+      if (result.success && result.tasks) {
+        // Extraer todas las categorías únicas de las tareas
+        const allCategories = new Set<string>();
+        result.tasks.forEach(t => {
+          if (t.categories && Array.isArray(t.categories)) {
+            t.categories.forEach(cat => {
+              if (cat && cat.trim()) {
+                allCategories.add(cat.trim());
+              }
+            });
+          }
+        });
+        const taskCategories = Array.from(allCategories);
+        
+        // Combinar con categorías guardadas
+        const saved = await getSavedCategories();
+        const combined = new Set<string>();
+        saved.forEach(cat => combined.add(cat));
+        taskCategories.forEach(cat => combined.add(cat));
+        
+        setAvailableCategories(Array.from(combined).sort());
+      }
+    } catch (error) {
+      console.error('Error al cargar categorías disponibles:', error);
+    }
+  };
 
   /**
    * Guarda los cambios
@@ -157,7 +263,8 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       description,
       assignedTo,
       dueDate,
-      priority
+      priority,
+      categories: categories.length > 0 ? categories : []
     });
 
     setIsSaving(false);
@@ -165,6 +272,15 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
     if (result.success && result.task) {
       dispatch(updateTaskRedux(result.task));
+      
+      // Guardar las categorías usadas para reutilización futura
+      if (categories.length > 0) {
+        await saveCategories(categories);
+      }
+      
+      // Sincronizar recordatorios después de actualizar
+      await syncReminders([result.task], []);
+      
       setIsEditing(false);
       showSuccess('Tarea actualizada correctamente', 'Éxito', () => {
         hideAlert();
@@ -185,6 +301,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setDueDate(task.dueDate);
     setSelectedDate(task.dueDate ? new Date(task.dueDate) : null);
     setPriority(task.priority);
+    setCategories(task.categories || []);
     setValidationErrors({});
     setIsEditing(false);
     setShowDatePicker(false);
@@ -346,8 +463,20 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
             </>
           ) : (
-            <Text style={styles.sectionValue}>👤 {getAssignedUserName(task.assignedTo)}</Text>
+            <Text style={styles.sectionValue}>
+              {task.assignedTo === user?.uid 
+                ? 'Asignado para mi' 
+                : `Asignado a: ${getAssignedUserName(task.assignedTo)}`}
+            </Text>
           )}
+        </View>
+
+        {/* Creado por */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Asignado por</Text>
+          <Text style={styles.sectionValue}>
+            {getCreatorName(task.createdBy)}
+          </Text>
         </View>
 
         {/* Fecha de vencimiento */}
@@ -529,6 +658,34 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               <Text style={styles.priorityBadgeText}>{task.priority}</Text>
             </View>
+          )}
+        </View>
+
+        {/* Categorías/Etiquetas */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Categorías/Etiquetas</Text>
+          {isEditing ? (
+            <CategorySelector
+              selectedCategories={categories}
+              availableCategories={availableCategories}
+              onChange={setCategories}
+              maxCategories={10}
+              placeholder="Ej: Cocina, Limpieza, Compras..."
+            />
+          ) : (
+            task.categories && task.categories.length > 0 ? (
+              <View style={styles.categoriesContainer}>
+                {task.categories.map((category, index) => (
+                  <View key={`${category}-${index}`} style={styles.categoryTag}>
+                    <Text style={styles.categoryText}>{category}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.sectionValue, { color: '#999', fontStyle: 'italic' }]}>
+                Sin categorías
+              </Text>
+            )
           )}
         </View>
 
@@ -770,6 +927,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
+  },
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8
+  },
+  categoryTag: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16
+  },
+  categoryText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500'
   }
 });
 

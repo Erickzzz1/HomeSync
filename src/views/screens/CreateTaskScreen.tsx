@@ -23,11 +23,15 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { addTask, setLoading } from '../../store/slices/taskSlice';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
 import FamilyRepository from '../../repositories/FamilyRepository';
+import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
 import { FamilyMember } from '../../repositories/interfaces/IFamilyRepository';
 import { TaskPriority } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import TaskRepository from '../../repositories/TaskRepository';
+import { scheduleTaskReminder } from '../../services/ReminderService';
+import CategorySelector from '../../components/CategorySelector';
+import { getSavedCategories, saveCategories } from '../../services/CategoryService';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -61,6 +65,8 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   const [reminderTime, setReminderTime] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>('Media');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [errors, setErrors] = useState<any>({});
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
@@ -68,29 +74,140 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
   const taskViewModel = new TaskViewModel();
   const familyRepository = new FamilyRepository();
+  const familyGroupRepository = new FamilyGroupRepository();
   const taskRepository = new TaskRepository();
 
   /**
-   * Carga los familiares al montar
+   * Carga los familiares y categorías disponibles al montar
    */
   useEffect(() => {
     loadFamilyMembers();
+    loadAvailableCategories();
+    loadSavedCategories();
   }, []);
 
   /**
-   * Carga la lista de familiares
+   * Carga las categorías guardadas localmente
+   */
+  const loadSavedCategories = async () => {
+    try {
+      const saved = await getSavedCategories();
+      // Combinar con las categorías de tareas existentes
+      const allCategories = new Set<string>();
+      saved.forEach(cat => allCategories.add(cat));
+      if (availableCategories.length > 0) {
+        availableCategories.forEach(cat => allCategories.add(cat));
+      }
+      setAvailableCategories(Array.from(allCategories).sort());
+    } catch (error) {
+      console.error('Error al cargar categorías guardadas:', error);
+    }
+  };
+
+  /**
+   * Carga la lista de familiares (tanto de la lista tradicional como de grupos familiares)
    */
   const loadFamilyMembers = async () => {
     setIsLoadingFamily(true);
     try {
-      const result = await familyRepository.getFamilyMembers();
-      if (result.success && result.familyMembers) {
-        setFamilyMembers(result.familyMembers);
+      // Cargar miembros de la lista tradicional
+      const traditionalResult = await familyRepository.getFamilyMembers();
+      const traditionalMembers: FamilyMember[] = traditionalResult.success && traditionalResult.familyMembers 
+        ? traditionalResult.familyMembers 
+        : [];
+
+      // Cargar miembros de todos los grupos familiares
+      const groupsResult = await familyGroupRepository.getMyFamilyGroups();
+      let groupMembers: FamilyMember[] = [];
+
+      if (groupsResult.success && groupsResult.groups) {
+        // Obtener miembros de cada grupo
+        const groupPromises = groupsResult.groups.map(async (group) => {
+          const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
+          if (groupDetailResult.success && groupDetailResult.group) {
+            return groupDetailResult.group.members.map(member => ({
+              uid: member.uid,
+              email: member.email,
+              displayName: member.displayName,
+              shareCode: member.shareCode,
+              role: member.role
+            }));
+          }
+          return [];
+        });
+
+        const allGroupMembersArrays = await Promise.all(groupPromises);
+        groupMembers = allGroupMembersArrays.flat();
       }
+
+      // Combinar ambos listados, eliminando duplicados por UID
+      const allMembersMap = new Map<string, FamilyMember>();
+      
+      // Agregar miembros tradicionales
+      traditionalMembers.forEach(member => {
+        if (member.uid && member.uid !== user?.uid) {
+          allMembersMap.set(member.uid, member);
+        }
+      });
+
+      // Agregar miembros de grupos (no sobrescribir si ya existe)
+      groupMembers.forEach(member => {
+        if (member.uid && member.uid !== user?.uid && !allMembersMap.has(member.uid)) {
+          allMembersMap.set(member.uid, member);
+        }
+      });
+
+      // Convertir a array
+      const uniqueMembers = Array.from(allMembersMap.values());
+      setFamilyMembers(uniqueMembers);
     } catch (error) {
       console.error('Error al cargar familiares:', error);
+      // En caso de error, intentar cargar solo la lista tradicional como fallback
+      try {
+        const result = await familyRepository.getFamilyMembers();
+        if (result.success && result.familyMembers) {
+          setFamilyMembers(result.familyMembers);
+        }
+      } catch (fallbackError) {
+        console.error('Error al cargar familiares (fallback):', fallbackError);
+      }
     } finally {
       setIsLoadingFamily(false);
+    }
+  };
+
+  /**
+   * Carga las categorías disponibles de las tareas existentes
+   */
+  const loadAvailableCategories = async () => {
+    try {
+      if (!user?.uid) return;
+      
+      const result = await taskRepository.getTasks(user.uid);
+      if (result.success && result.tasks) {
+        // Extraer todas las categorías únicas de las tareas
+        const allCategories = new Set<string>();
+        result.tasks.forEach(task => {
+          if (task.categories && Array.isArray(task.categories)) {
+            task.categories.forEach(cat => {
+              if (cat && cat.trim()) {
+                allCategories.add(cat.trim());
+              }
+            });
+          }
+        });
+        const taskCategories = Array.from(allCategories);
+        
+        // Combinar con categorías guardadas
+        const saved = await getSavedCategories();
+        const combined = new Set<string>();
+        saved.forEach(cat => combined.add(cat));
+        taskCategories.forEach(cat => combined.add(cat));
+        
+        setAvailableCategories(Array.from(combined).sort());
+      }
+    } catch (error) {
+      console.error('Error al cargar categorías disponibles:', error);
     }
   };
 
@@ -237,20 +354,35 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     // Normalizar título (trim y espacios múltiples)
     const finalTitle = sanitizedTitle.trim().replace(/\s+/g, ' ');
     
-    const result = await taskViewModel.createTask(
-      finalTitle,
-      description.trim() || '', // Descripción opcional, enviar string vacío si no hay
-      assignedUserId, // Enviar UID en lugar del nombre
+    // Preparar datos de la tarea incluyendo categorías
+    const taskData = {
+      title: finalTitle,
+      description: description.trim() || '',
+      assignedTo: assignedUserId,
       dueDate,
       priority,
-      user.uid,
-      reminderTime || undefined // Hora del recordatorio (opcional)
-    );
+      createdBy: user.uid,
+      reminderTime: reminderTime || undefined,
+      categories: Array.isArray(categories) ? categories.filter(cat => cat && cat.trim()).map(cat => cat.trim()) : []
+    };
+
+    const result = await taskRepository.createTask(taskData);
 
     dispatch(setLoading(false));
 
     if (result.success && result.task) {
       dispatch(addTask(result.task));
+      
+      // Guardar las categorías usadas para reutilización futura
+      if (categories.length > 0) {
+        await saveCategories(categories);
+      }
+      
+      // Programar recordatorio si se especificó reminderTime
+      if (reminderTime || result.task.reminderTime) {
+        await scheduleTaskReminder(result.task);
+      }
+      
       showSuccess('Tarea creada correctamente', 'Éxito', () => {
         hideAlert();
         navigation.goBack();
@@ -675,6 +807,21 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             {errors.priority && (
               <Text style={styles.errorText}>{errors.priority}</Text>
             )}
+          </View>
+
+          {/* Categorías/Etiquetas */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Categorías/Etiquetas (Opcional)</Text>
+            <CategorySelector
+              selectedCategories={categories}
+              availableCategories={availableCategories}
+              onChange={setCategories}
+              maxCategories={10}
+              placeholder="Ej: Cocina, Limpieza, Compras..."
+            />
+            <Text style={styles.helperText}>
+              Organiza tus tareas con etiquetas. Puedes crear nuevas o usar las existentes.
+            </Text>
           </View>
 
           {/* Botones */}

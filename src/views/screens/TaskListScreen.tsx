@@ -16,6 +16,8 @@ import {
   View,
   Text,
   FlatList,
+  SectionList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -24,7 +26,9 @@ import {
   RefreshControl,
   LayoutAnimation,
   UIManager,
-  Alert
+  Alert,
+  TextInput,
+  Modal
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -32,11 +36,15 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setTasks, removeTask, updateTask, setLoading } from '../../store/slices/taskSlice';
 import TaskRepository from '../../repositories/TaskRepository';
 import FamilyRepository from '../../repositories/FamilyRepository';
+import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
 import { TaskModel } from '../../models/TaskModel';
 import TaskItem from '../../components/TaskItem';
 import CustomAlert from '../../components/CustomAlert';
+import SyncIndicator from '../../components/SyncIndicator';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { subscribeToTasks } from '../../services/TaskFirestoreService';
+import { syncReminders, cancelTaskReminder } from '../../services/ReminderService';
+import { getSavedCategories } from '../../services/CategoryService';
 import { Unsubscribe } from 'firebase/firestore';
 
 // Habilitar LayoutAnimation en Android
@@ -60,15 +68,35 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [userNameMap, setUserNameMap] = useState<Map<string, string>>(new Map());
   const [isOnline, setIsOnline] = useState(true);
   const [displayedTasks, setDisplayedTasks] = useState<TaskModel[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   
+  // Estado de sincronización
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'offline'>('synced');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Filtros avanzados
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
+  const [selectedAssignedTo, setSelectedAssignedTo] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  
+  // Agrupación
+  const [groupBy, setGroupBy] = useState<'none' | 'date' | 'priority' | 'both'>('none');
+  
   const taskRepository = new TaskRepository();
+  const familyGroupRepository = new FamilyGroupRepository();
   const unsubscribeTasksRef = useRef<Unsubscribe | null>(null);
   const unsubscribeNetInfoRef = useRef<any>(null);
+  const previousTasksRef = useRef<TaskModel[]>([]);
 
   /**
    * Configura animaciones de layout
@@ -92,6 +120,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   /**
    * Carga el mapa de nombres de usuarios (familiares + usuario actual)
+   * También extrae usuarios de las tareas existentes para funcionar offline
    */
   const loadUserNameMap = useCallback(async () => {
     if (!user?.uid) return;
@@ -101,24 +130,65 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     // Agregar el usuario actual al mapa
     nameMap.set(user.uid, user.displayName || user.email || 'Yo');
     
-    // Cargar familiares y agregarlos al mapa
-    try {
-      const familyRepository = new FamilyRepository();
-      const familyResult = await familyRepository.getFamilyMembers();
-      if (familyResult.success && familyResult.familyMembers) {
-        familyResult.familyMembers.forEach((member) => {
-          nameMap.set(
-            member.uid,
-            member.displayName || member.email || 'Sin nombre'
-          );
-        });
+    // Cargar familiares desde la API (si hay conexión)
+    if (isOnline) {
+      try {
+        const familyRepository = new FamilyRepository();
+        const familyResult = await familyRepository.getFamilyMembers();
+        if (familyResult.success && familyResult.familyMembers) {
+          familyResult.familyMembers.forEach((member) => {
+            nameMap.set(
+              member.uid,
+              member.displayName || member.email || 'Sin nombre'
+            );
+          });
+        }
+      } catch (error) {
+        // Si falla, continuamos con los usuarios extraídos de las tareas
+        console.warn('Error al cargar familiares (continuando con usuarios de tareas):', error);
       }
-    } catch (error) {
-      console.error('Error al cargar familiares para mapeo de nombres:', error);
+
+      // Cargar miembros de grupos familiares
+      try {
+        const groupsResult = await familyGroupRepository.getMyFamilyGroups();
+        if (groupsResult.success && groupsResult.groups) {
+          // Obtener miembros de cada grupo
+          const groupPromises = groupsResult.groups.map(async (group) => {
+            const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
+            if (groupDetailResult.success && groupDetailResult.group) {
+              return groupDetailResult.group.members.map(member => ({
+                uid: member.uid,
+                name: member.displayName || member.email || 'Sin nombre'
+              }));
+            }
+            return [];
+          });
+
+          const allGroupMembersArrays = await Promise.all(groupPromises);
+          const allGroupMembers = allGroupMembersArrays.flat();
+          
+          allGroupMembers.forEach((member) => {
+            if (member.uid && !nameMap.has(member.uid)) {
+              nameMap.set(member.uid, member.name);
+            }
+          });
+        }
+      } catch (error) {
+        console.warn('Error al cargar miembros de grupos (continuando):', error);
+      }
     }
     
+    // Extraer usuarios asignados de las tareas existentes (funciona offline)
+    tasks.forEach(task => {
+      if (task.assignedTo && task.assignedTo !== user.uid && !nameMap.has(task.assignedTo)) {
+        // Si no tenemos el nombre, usar el UID temporalmente
+        // Se actualizará cuando se carguen los familiares
+        nameMap.set(task.assignedTo, task.assignedTo);
+      }
+    });
+    
     setUserNameMap(nameMap);
-  }, [user?.uid, user?.displayName, user?.email]);
+  }, [user?.uid, user?.displayName, user?.email, isOnline, tasks]);
 
   /**
    * Obtiene el nombre del usuario asignado a partir de su UID
@@ -152,6 +222,9 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     // Configurar listener en tiempo real
+    setIsSyncing(true);
+    setSyncStatus('syncing');
+    
     unsubscribeTasksRef.current = subscribeToTasks(
       user.uid,
       (tasks: TaskModel[]) => {
@@ -159,9 +232,123 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         configureLayoutAnimation();
         dispatch(setTasks(tasks));
         resetPagination(tasks);
+        
+        // Sincronizar recordatorios cuando cambian las tareas
+        syncReminders(tasks, previousTasksRef.current.map(t => t.id));
+        previousTasksRef.current = tasks;
+        
+        // Actualizar estado de sincronización
+        setIsSyncing(false);
+        setSyncStatus('synced');
+        setLastSyncTime(new Date());
+      },
+      (error) => {
+        // Error en la sincronización
+        setIsSyncing(false);
+        setSyncStatus('error');
+        console.error('Error en sincronización:', error);
       }
     );
   }, [user?.uid, isOnline, dispatch]);
+
+  /**
+   * Formatea una fecha para mostrar en el encabezado de grupo
+   */
+  const formatGroupDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    today.setHours(0, 0, 0, 0);
+    tomorrow.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    
+    if (date.getTime() === today.getTime()) {
+      return 'Hoy';
+    }
+    if (date.getTime() === tomorrow.getTime()) {
+      return 'Mañana';
+    }
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    if (date.getTime() === yesterday.getTime()) {
+      return 'Ayer';
+    }
+    
+    // Si es de esta semana
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    if (date > weekAgo && date < today) {
+      return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+    }
+    
+    // Formato estándar
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+  };
+
+  /**
+   * Agrupa las tareas según el tipo de agrupación seleccionado
+   */
+  const groupTasks = (tasksList: TaskModel[]): Array<{ title: string; data: TaskModel[] }> => {
+    if (groupBy === 'none') {
+      return [{ title: 'Todas las tareas', data: tasksList }];
+    }
+
+    const grouped: Map<string, TaskModel[]> = new Map();
+
+    tasksList.forEach(task => {
+      let groupKey = '';
+      
+      if (groupBy === 'date') {
+        groupKey = task.dueDate || 'Sin fecha';
+      } else if (groupBy === 'priority') {
+        groupKey = task.priority;
+      } else if (groupBy === 'both') {
+        const dateKey = task.dueDate || 'Sin fecha';
+        groupKey = `${task.priority} - ${dateKey}`;
+      }
+
+      if (!grouped.has(groupKey)) {
+        grouped.set(groupKey, []);
+      }
+      grouped.get(groupKey)!.push(task);
+    });
+
+    // Convertir a array y ordenar
+    const sections = Array.from(grouped.entries()).map(([key, data]) => ({
+      title: key,
+      data: data.sort((a, b) => {
+        // Ordenar por fecha dentro de cada grupo
+        const dateA = new Date(a.dueDate).getTime();
+        const dateB = new Date(b.dueDate).getTime();
+        return dateA - dateB;
+      })
+    }));
+
+    // Ordenar secciones
+    if (groupBy === 'date' || groupBy === 'both') {
+      sections.sort((a, b) => {
+        const dateA = new Date(a.title.split(' - ').pop() || a.title).getTime();
+        const dateB = new Date(b.title.split(' - ').pop() || b.title).getTime();
+        if (isNaN(dateA) && isNaN(dateB)) return 0;
+        if (isNaN(dateA)) return 1;
+        if (isNaN(dateB)) return -1;
+        return dateA - dateB;
+      });
+    } else if (groupBy === 'priority') {
+      const priorityOrder = { 'Alta': 0, 'Media': 1, 'Baja': 2 };
+      sections.sort((a, b) => {
+        const orderA = priorityOrder[a.title as keyof typeof priorityOrder] ?? 3;
+        const orderB = priorityOrder[b.title as keyof typeof priorityOrder] ?? 3;
+        return orderA - orderB;
+      });
+    }
+
+    return sections;
+  };
 
   /**
    * Resetea la paginación y actualiza las tareas mostradas
@@ -169,22 +356,106 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   const resetPagination = (tasksToDisplay: TaskModel[]) => {
     setCurrentPage(0);
     const filtered = getFilteredTasksFromList(tasksToDisplay);
-    setDisplayedTasks(filtered.slice(0, PAGE_SIZE));
-    setHasMore(filtered.length > PAGE_SIZE);
+    
+    if (groupBy === 'none') {
+      setDisplayedTasks(filtered.slice(0, PAGE_SIZE));
+      setHasMore(filtered.length > PAGE_SIZE);
+    } else {
+      // Con agrupación, mostramos todas las tareas (no hay paginación)
+      setDisplayedTasks(filtered);
+      setHasMore(false);
+    }
   };
 
   /**
-   * Filtra las tareas según el filtro seleccionado
+   * Extrae todas las categorías únicas de las tareas
+   */
+  const extractCategories = useCallback((tasksList: TaskModel[]) => {
+    const categoriesSet = new Set<string>();
+    tasksList.forEach(task => {
+      if (task.categories && Array.isArray(task.categories)) {
+        task.categories.forEach(cat => {
+          if (cat && cat.trim()) {
+            categoriesSet.add(cat.trim());
+          }
+        });
+      }
+    });
+    return Array.from(categoriesSet).sort();
+  }, []);
+
+  /**
+   * Filtra las tareas según todos los filtros aplicados
    */
   const getFilteredTasksFromList = (tasksList: TaskModel[]): TaskModel[] => {
+    let filtered = tasksList;
+
+    // Aplicar filtro de estado (pendiente/completada)
     switch (filter) {
       case 'pending':
-        return tasksList.filter(task => !task.isCompleted);
+        filtered = filtered.filter(task => !task.isCompleted);
+        break;
       case 'completed':
-        return tasksList.filter(task => task.isCompleted);
+        filtered = filtered.filter(task => task.isCompleted);
+        break;
       default:
-        return tasksList;
+        // 'all' - no filtrar por estado
+        break;
     }
+
+    // Aplicar filtro de categoría si hay una seleccionada
+    if (selectedCategory) {
+      filtered = filtered.filter(task => 
+        task.categories && 
+        task.categories.some(cat => 
+          cat && cat.trim().toLowerCase() === selectedCategory.toLowerCase()
+        )
+      );
+    }
+
+    // Aplicar búsqueda por texto (título y descripción)
+    if (searchText.trim()) {
+      const searchLower = searchText.trim().toLowerCase();
+      filtered = filtered.filter(task => 
+        task.title.toLowerCase().includes(searchLower) ||
+        (task.description && task.description.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Aplicar filtro por prioridad (puede ser múltiple)
+    if (selectedPriorities.length > 0) {
+      filtered = filtered.filter(task => selectedPriorities.includes(task.priority));
+    }
+
+    // Aplicar filtro por asignado
+    if (selectedAssignedTo) {
+      filtered = filtered.filter(task => task.assignedTo === selectedAssignedTo);
+    }
+
+    // Aplicar filtro por rango de fechas
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(task => {
+        if (!task.dueDate) return false;
+        const taskDate = new Date(task.dueDate);
+        taskDate.setHours(0, 0, 0, 0);
+        return taskDate >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(task => {
+        if (!task.dueDate) return false;
+        const taskDate = new Date(task.dueDate);
+        taskDate.setHours(0, 0, 0, 0);
+        return taskDate <= toDate;
+      });
+    }
+
+    return filtered;
   };
 
   /**
@@ -206,7 +477,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     } else {
       setHasMore(false);
     }
-  }, [hasMore, isLoading, currentPage, tasks, filter]);
+  }, [hasMore, isLoading, currentPage, tasks, filter, selectedCategory, searchText, selectedPriorities, selectedAssignedTo, dateFrom, dateTo]);
 
 
   /**
@@ -223,9 +494,11 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       
       if (online) {
         // Reconectar cuando vuelve la conexión
+        setSyncStatus('syncing');
         setupTasksListener();
       } else {
         // Detener listener cuando se pierde la conexión
+        setSyncStatus('offline');
         if (unsubscribeTasksRef.current) {
           unsubscribeTasksRef.current();
           unsubscribeTasksRef.current = null;
@@ -234,14 +507,14 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, [setupTasksListener]);
 
-  // Cargar mapa de nombres cuando cambia el usuario
+  // Cargar mapa de nombres cuando cambia el usuario, conexión o tareas
   useEffect(() => {
     if (user?.uid) {
       loadUserNameMap();
     } else {
       setUserNameMap(new Map());
     }
-  }, [user?.uid, user?.displayName, user?.email, loadUserNameMap]);
+  }, [user?.uid, user?.displayName, user?.email, isOnline, tasks, loadUserNameMap]);
 
   // Configurar listener de onSnapshot cuando cambia el usuario o la conexión
   useEffect(() => {
@@ -263,11 +536,31 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [setupNetInfo]);
 
-  // Actualizar tareas mostradas cuando cambian las tareas o el filtro
+  // Actualizar categorías disponibles cuando cambian las tareas
+  useEffect(() => {
+    const loadAllCategories = async () => {
+      // Obtener categorías de las tareas
+      const taskCategories = extractCategories(tasks);
+      
+      // Obtener categorías guardadas
+      const savedCategories = await getSavedCategories();
+      
+      // Combinar ambas listas
+      const combined = new Set<string>();
+      taskCategories.forEach(cat => combined.add(cat));
+      savedCategories.forEach(cat => combined.add(cat));
+      
+      setAvailableCategories(Array.from(combined).sort());
+    };
+    
+    loadAllCategories();
+  }, [tasks, extractCategories]);
+
+  // Actualizar tareas mostradas cuando cambian las tareas o cualquier filtro
   useEffect(() => {
     const filtered = getFilteredTasksFromList(tasks);
     resetPagination(filtered);
-  }, [tasks, filter]);
+  }, [tasks, filter, selectedCategory, searchText, selectedPriorities, selectedAssignedTo, dateFrom, dateTo, groupBy]);
 
   /**
    * Refresca la lista de tareas
@@ -280,6 +573,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setRefreshing(true);
+    setSyncStatus('syncing');
     // Reconectar el listener (onSnapshot se actualiza automáticamente)
     setupTasksListener();
     // Simular un pequeño delay para el feedback visual
@@ -314,12 +608,25 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     const newStatus = !task.isCompleted;
     
     dispatch(setLoading(true));
+    setSyncStatus('syncing');
+    
     const result = await taskRepository.toggleTaskCompletion(task.id, newStatus);
 
     if (result.success && result.task) {
       configureLayoutAnimation();
       dispatch(updateTask(result.task));
+      setSyncStatus('synced');
+      setLastSyncTime(new Date());
+      
+      // Si se completó la tarea, cancelar el recordatorio
+      if (newStatus) {
+        await cancelTaskReminder(task.id);
+      } else {
+        // Si se desmarcó como completada, reprogramar el recordatorio
+        await syncReminders([result.task], []);
+      }
     } else {
+      setSyncStatus('error');
       showError(result.error || 'No se pudo actualizar la tarea');
     }
     dispatch(setLoading(false));
@@ -339,13 +646,22 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       'Eliminar Tarea',
       async () => {
         dispatch(setLoading(true));
+        setSyncStatus('syncing');
+        
         const result = await taskRepository.deleteTask(taskId);
 
         if (result.success) {
           configureLayoutAnimation();
           dispatch(removeTask(taskId));
+          setSyncStatus('synced');
+          setLastSyncTime(new Date());
+          
+          // Cancelar el recordatorio de la tarea eliminada
+          await cancelTaskReminder(taskId);
+          
           showSuccess('Tarea eliminada correctamente');
         } else {
+          setSyncStatus('error');
           Alert.alert('Error', result.error || 'No se pudo eliminar la tarea');
         }
         dispatch(setLoading(false));
@@ -365,6 +681,88 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
+   * Cambia el filtro de categoría
+   */
+  const changeCategoryFilter = (category: string | null) => {
+    configureLayoutAnimation();
+    setSelectedCategory(category);
+  };
+
+  /**
+   * Limpia todos los filtros avanzados
+   */
+  const clearAdvancedFilters = () => {
+    setSearchText('');
+    setSelectedPriorities([]);
+    setSelectedAssignedTo(null);
+    setDateFrom('');
+    setDateTo('');
+    configureLayoutAnimation();
+  };
+
+  /**
+   * Toggle de prioridad (permite múltiples selecciones)
+   */
+  const togglePriority = (priority: string) => {
+    setSelectedPriorities(prev => {
+      if (prev.includes(priority)) {
+        return prev.filter(p => p !== priority);
+      } else {
+        return [...prev, priority];
+      }
+    });
+  };
+
+  /**
+   * Obtiene la lista de usuarios asignables (usuario actual + familiares + usuarios de tareas)
+   */
+  const getAssignableUsers = (): Array<{ uid: string; name: string }> => {
+    const users: Array<{ uid: string; name: string }> = [];
+    const addedUids = new Set<string>();
+    
+    // Agregar usuario actual
+    if (user?.uid) {
+      users.push({
+        uid: user.uid,
+        name: user.displayName || user.email || 'Yo'
+      });
+      addedUids.add(user.uid);
+    }
+    
+    // Agregar usuarios del mapa (familiares + usuarios de tareas)
+    userNameMap.forEach((name, uid) => {
+      if (!addedUids.has(uid)) {
+        users.push({ uid, name });
+        addedUids.add(uid);
+      }
+    });
+    
+    // También extraer usuarios únicos de las tareas (por si acaso)
+    tasks.forEach(task => {
+      if (task.assignedTo && !addedUids.has(task.assignedTo)) {
+        const name = getAssignedUserName(task.assignedTo);
+        users.push({ uid: task.assignedTo, name });
+        addedUids.add(task.assignedTo);
+      }
+    });
+    
+    return users;
+  };
+
+  /**
+   * Verifica si hay filtros avanzados activos
+   */
+  const hasActiveAdvancedFilters = (): boolean => {
+    return !!(
+      searchText.trim() ||
+      selectedPriorities.length > 0 ||
+      selectedAssignedTo ||
+      dateFrom ||
+      dateTo
+    );
+  };
+
+  /**
    * Renderiza una tarea individual usando el componente TaskItem
    */
   const renderTask = ({ item }: { item: TaskModel }) => (
@@ -377,6 +775,34 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       onPress={navigateToTaskDetail}
     />
   );
+
+  /**
+   * Renderiza el encabezado de una sección agrupada
+   */
+  const renderSectionHeader = ({ section }: { section: { title: string; data: TaskModel[] } }) => {
+    if (groupBy === 'none') return null;
+    
+    let displayTitle = section.title;
+    
+    // Formatear título según el tipo de agrupación
+    if (groupBy === 'date') {
+      displayTitle = formatGroupDate(section.title);
+    } else if (groupBy === 'priority') {
+      displayTitle = `Prioridad: ${section.title}`;
+    } else if (groupBy === 'both') {
+      const [priority, date] = section.title.split(' - ');
+      displayTitle = `${priority} - ${formatGroupDate(date)}`;
+    }
+    
+    return (
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderTitle}>{displayTitle}</Text>
+        <View style={styles.sectionHeaderBadge}>
+          <Text style={styles.sectionHeaderBadgeText}>{section.data.length}</Text>
+        </View>
+      </View>
+    );
+  };
 
   /**
    * Renderiza el footer de la lista (para infinite scroll)
@@ -414,12 +840,21 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Banner de conexión offline */}
-      {!isOnline && (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineText}>⚠️ Sin conexión a internet</Text>
-        </View>
-      )}
+      {/* Banner de conexión offline y estado de sincronización */}
+      <View style={styles.statusBanner}>
+        {!isOnline ? (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>⚠️ Sin conexión a internet</Text>
+          </View>
+        ) : (
+          <View style={styles.syncBanner}>
+            <SyncIndicator
+              status={syncStatus}
+              lastSyncTime={lastSyncTime}
+            />
+          </View>
+        )}
+      </View>
 
       {/* Header con estadísticas */}
       <View style={styles.statsContainer}>
@@ -484,17 +919,136 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Filtro de Categorías - Mostrar siempre que haya categorías guardadas o en tareas */}
+      {(availableCategories.length > 0 || selectedCategory) && (
+        <View style={styles.categoryFilterContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryFilterScroll}
+          >
+            <TouchableOpacity
+              style={[
+                styles.categoryFilterButton,
+                !selectedCategory && styles.categoryFilterButtonActive
+              ]}
+              onPress={() => changeCategoryFilter(null)}
+            >
+              <Text
+                style={[
+                  styles.categoryFilterText,
+                  !selectedCategory && styles.categoryFilterTextActive
+                ]}
+              >
+                Todas
+              </Text>
+            </TouchableOpacity>
+            {availableCategories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryFilterButton,
+                  selectedCategory === category && styles.categoryFilterButtonActive
+                ]}
+                onPress={() => changeCategoryFilter(
+                  selectedCategory === category ? null : category
+                )}
+              >
+                <Text
+                  style={[
+                    styles.categoryFilterText,
+                    selectedCategory === category && styles.categoryFilterTextActive
+                  ]}
+                >
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Selector de Agrupación */}
+      <View style={styles.groupByContainer}>
+        <Text style={styles.groupByLabel}>Agrupar por:</Text>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.groupByScroll}
+        >
+          {[
+            { key: 'none', label: 'Sin agrupar' },
+            { key: 'date', label: '📅 Fecha' },
+            { key: 'priority', label: '⚡ Prioridad' },
+            { key: 'both', label: '📅⚡ Ambos' }
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.key}
+              style={[
+                styles.groupByButton,
+                groupBy === option.key && styles.groupByButtonActive
+              ]}
+              onPress={() => {
+                configureLayoutAnimation();
+                setGroupBy(option.key as typeof groupBy);
+              }}
+            >
+              <Text
+                style={[
+                  styles.groupByButtonText,
+                  groupBy === option.key && styles.groupByButtonTextActive
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Botones de Vista y Filtro Avanzado */}
+      <View style={styles.advancedFilterButtonContainer}>
+        <TouchableOpacity
+          style={styles.calendarButton}
+          onPress={() => navigation.navigate('Calendar')}
+        >
+          <Text style={styles.calendarButtonText}>📅 Calendario</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.advancedFilterButton,
+            hasActiveAdvancedFilters() && styles.advancedFilterButtonActive
+          ]}
+          onPress={() => setShowAdvancedFilter(true)}
+        >
+          <Text style={styles.advancedFilterButtonText}>
+            🔍 Filtros Avanzados
+            {hasActiveAdvancedFilters() && ' •'}
+          </Text>
+        </TouchableOpacity>
+        {hasActiveAdvancedFilters() && (
+          <TouchableOpacity
+            style={styles.clearFiltersButton}
+            onPress={clearAdvancedFilters}
+          >
+            <Text style={styles.clearFiltersButtonText}>Limpiar</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Lista de tareas */}
       {isLoading && !refreshing && displayedTasks.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
           <Text style={styles.loadingText}>Cargando tareas...</Text>
         </View>
-      ) : (
+      ) : groupBy === 'none' ? (
         <FlatList
           data={displayedTasks}
           renderItem={renderTask}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => {
+            return item.id || `task-${index}`;
+          }}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
@@ -511,6 +1065,26 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           maxToRenderPerBatch={10}
           windowSize={10}
         />
+      ) : (
+        <SectionList
+          sections={groupTasks(getFilteredTasksFromList(tasks))}
+          renderItem={renderTask}
+          renderSectionHeader={renderSectionHeader}
+          keyExtractor={(item, index) => {
+            return item.id || `task-${index}`;
+          }}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              enabled={isOnline}
+            />
+          }
+          stickySectionHeadersEnabled={false}
+          removeClippedSubviews={Platform.OS === 'android'}
+        />
       )}
 
       {/* Botón flotante para crear tarea */}
@@ -521,6 +1095,194 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      {/* Modal de Filtro Avanzado */}
+      <Modal
+        visible={showAdvancedFilter}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAdvancedFilter(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filtros Avanzados</Text>
+              <TouchableOpacity
+                onPress={() => setShowAdvancedFilter(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Búsqueda por texto */}
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Buscar en título/descripción</Text>
+                <TextInput
+                  style={styles.filterInput}
+                  placeholder="Ej: lavar, compras..."
+                  placeholderTextColor="#999"
+                  value={searchText}
+                  onChangeText={setSearchText}
+                />
+              </View>
+
+              {/* Filtro por prioridad (múltiple) */}
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Prioridad (puedes seleccionar varias)</Text>
+                <View style={styles.priorityFilterContainer}>
+                  {['Alta', 'Media', 'Baja'].map((priority) => {
+                    const isSelected = selectedPriorities.includes(priority);
+                    return (
+                      <TouchableOpacity
+                        key={priority}
+                        style={[
+                          styles.priorityFilterButton,
+                          isSelected && styles.priorityFilterButtonActive,
+                          priority === 'Alta' && isSelected && styles.priorityFilterButtonHigh,
+                          priority === 'Media' && isSelected && styles.priorityFilterButtonMedium,
+                          priority === 'Baja' && isSelected && styles.priorityFilterButtonLow
+                        ]}
+                        onPress={() => togglePriority(priority)}
+                      >
+                        <Text
+                          style={[
+                            styles.priorityFilterText,
+                            isSelected && styles.priorityFilterTextActive
+                          ]}
+                        >
+                          {priority}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Filtro por asignado */}
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Asignado a</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.assigneeFilterScroll}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.assigneeFilterButton,
+                      !selectedAssignedTo && styles.assigneeFilterButtonActive
+                    ]}
+                    onPress={() => setSelectedAssignedTo(null)}
+                  >
+                    <Text
+                      style={[
+                        styles.assigneeFilterText,
+                        !selectedAssignedTo && styles.assigneeFilterTextActive
+                      ]}
+                    >
+                      Todos
+                    </Text>
+                  </TouchableOpacity>
+                  {getAssignableUsers().map((userItem) => (
+                    <TouchableOpacity
+                      key={userItem.uid}
+                      style={[
+                        styles.assigneeFilterButton,
+                        selectedAssignedTo === userItem.uid && styles.assigneeFilterButtonActive
+                      ]}
+                      onPress={() => setSelectedAssignedTo(
+                        selectedAssignedTo === userItem.uid ? null : userItem.uid
+                      )}
+                    >
+                      <Text
+                        style={[
+                          styles.assigneeFilterText,
+                          selectedAssignedTo === userItem.uid && styles.assigneeFilterTextActive
+                        ]}
+                      >
+                        {userItem.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Filtro por rango de fechas */}
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Rango de fechas</Text>
+                <View style={styles.dateRangeContainer}>
+                  <View style={styles.dateInputContainer}>
+                    <Text style={styles.dateInputLabel}>Desde</Text>
+                    {Platform.OS === 'web' ? (
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e: any) => setDateFrom(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: '1px solid #E0E0E0',
+                          fontSize: '14px'
+                        }}
+                      />
+                    ) : (
+                      <TextInput
+                        style={styles.filterInput}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor="#999"
+                        value={dateFrom}
+                        onChangeText={setDateFrom}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.dateInputContainer}>
+                    <Text style={styles.dateInputLabel}>Hasta</Text>
+                    {Platform.OS === 'web' ? (
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e: any) => setDateTo(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: '1px solid #E0E0E0',
+                          fontSize: '14px'
+                        }}
+                      />
+                    ) : (
+                      <TextInput
+                        style={styles.filterInput}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor="#999"
+                        value={dateTo}
+                        onChangeText={setDateTo}
+                      />
+                    )}
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalButtonSecondary}
+                onPress={clearAdvancedFilters}
+              >
+                <Text style={styles.modalButtonSecondaryText}>Limpiar Todo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButtonPrimary}
+                onPress={() => setShowAdvancedFilter(false)}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <CustomAlert
         visible={alertState.visible}
@@ -543,16 +1305,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5'
   },
+  statusBanner: {
+    paddingVertical: 8,
+    paddingHorizontal: 16
+  },
   offlineBanner: {
     backgroundColor: '#FF3B30',
     paddingVertical: 8,
     paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center'
   },
   offlineText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600'
+  },
+  syncBanner: {
+    alignItems: 'flex-end'
   },
   statsContainer: {
     flexDirection: 'row',
@@ -601,6 +1371,38 @@ const styles = StyleSheet.create({
   },
   filterButtonTextActive: {
     color: '#fff'
+  },
+  categoryFilterContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  categoryFilterScroll: {
+    paddingHorizontal: 20,
+    gap: 8
+  },
+  categoryFilterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginRight: 8
+  },
+  categoryFilterButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#4A90E2'
+  },
+  categoryFilterText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500'
+  },
+  categoryFilterTextActive: {
+    color: '#1976D2',
+    fontWeight: '600'
   },
   listContent: {
     padding: 16,
@@ -661,6 +1463,298 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 32,
     fontWeight: '300'
+  },
+  advancedFilterButtonContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    alignItems: 'center',
+    gap: 8
+  },
+  calendarButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#34C759',
+    alignItems: 'center'
+  },
+  calendarButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600'
+  },
+  groupByContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  groupByLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    fontWeight: '500'
+  },
+  groupByScroll: {
+    gap: 8
+  },
+  groupByButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginRight: 8
+  },
+  groupByButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#4A90E2'
+  },
+  groupByButtonText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500'
+  },
+  groupByButtonTextActive: {
+    color: '#1976D2',
+    fontWeight: '600'
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4A90E2'
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1
+  },
+  sectionHeaderBadge: {
+    backgroundColor: '#4A90E2',
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    marginLeft: 8
+  },
+  sectionHeaderBadgeText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: 'bold'
+  },
+  advancedFilterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    alignItems: 'center'
+  },
+  advancedFilterButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#4A90E2'
+  },
+  advancedFilterButtonText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500'
+  },
+  clearFiltersButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center'
+  },
+  clearFiltersButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600'
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end'
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalCloseButtonText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: 'bold'
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16
+  },
+  filterField: {
+    marginBottom: 24
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8
+  },
+  filterInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
+  },
+  priorityFilterContainer: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  priorityFilterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    alignItems: 'center'
+  },
+  priorityFilterButtonActive: {
+    borderWidth: 2
+  },
+  priorityFilterButtonHigh: {
+    backgroundColor: '#FF3B30',
+    borderColor: '#FF3B30'
+  },
+  priorityFilterButtonMedium: {
+    backgroundColor: '#FF9500',
+    borderColor: '#FF9500'
+  },
+  priorityFilterButtonLow: {
+    backgroundColor: '#34C759',
+    borderColor: '#34C759'
+  },
+  priorityFilterText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500'
+  },
+  priorityFilterTextActive: {
+    color: '#fff',
+    fontWeight: '600'
+  },
+  assigneeFilterScroll: {
+    flexDirection: 'row'
+  },
+  assigneeFilterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginRight: 8
+  },
+  assigneeFilterButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#4A90E2'
+  },
+  assigneeFilterText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500'
+  },
+  assigneeFilterTextActive: {
+    color: '#1976D2',
+    fontWeight: '600'
+  },
+  dateRangeContainer: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  dateInputContainer: {
+    flex: 1
+  },
+  dateInputLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    gap: 12
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center'
+  },
+  modalButtonSecondaryText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600'
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#4A90E2',
+    alignItems: 'center'
+  },
+  modalButtonPrimaryText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600'
   }
 });
 

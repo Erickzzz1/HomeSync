@@ -11,7 +11,9 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import familyRoutes from './routes/familyRoutes.js';
+import familyGroupRoutes from './routes/familyGroupRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import groupNotificationRoutes from './routes/groupNotificationRoutes.js';
 import './config/firebase.js'; // Inicializar Firebase
 
 dotenv.config();
@@ -40,7 +42,9 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/family', familyRoutes);
+app.use('/api/family-groups', familyGroupRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/group-notifications', groupNotificationRoutes);
 
 // Ruta de salud
 app.get('/health', (req, res) => {

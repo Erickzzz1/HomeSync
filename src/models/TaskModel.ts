@@ -70,6 +70,12 @@ export interface TaskModel {
    * Fecha de última actualización (timestamp)
    */
   updatedAt: string;
+
+  /**
+   * Etiquetas/Categorías de la tarea (opcional)
+   * Array de strings que permiten organizar y filtrar tareas
+   */
+  categories?: string[];
 }
 
 /**
@@ -84,6 +90,7 @@ export interface CreateTaskData {
   priority: TaskPriority;
   createdBy: string;
   reminderTime?: string;
+  categories?: string[];
 }
 
 /**
@@ -97,5 +104,6 @@ export interface UpdateTaskData {
   dueDate?: string;
   priority?: TaskPriority;
   isCompleted?: boolean;
+  categories?: string[];
 }
 

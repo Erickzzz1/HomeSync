@@ -34,6 +34,7 @@ const convertFirestoreTask = (doc: any): TaskModel => {
     isCompleted: data.isCompleted || false,
     createdBy: data.createdBy || '',
     reminderTime: data.reminderTime || undefined,
+    categories: Array.isArray(data.categories) ? data.categories : undefined,
     createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
     updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
   };
@@ -44,11 +45,13 @@ const convertFirestoreTask = (doc: any): TaskModel => {
  * 
  * @param userId ID del usuario actual
  * @param callback Función que se ejecuta cuando hay cambios
+ * @param onError Función opcional que se ejecuta cuando hay errores
  * @returns Función para desuscribirse
  */
 export const subscribeToTasks = (
   userId: string,
-  callback: (tasks: TaskModel[]) => void
+  callback: (tasks: TaskModel[]) => void,
+  onError?: (error: Error) => void
 ): Unsubscribe => {
   if (!userId) {
     console.warn('subscribeToTasks: userId no proporcionado');
@@ -69,16 +72,23 @@ export const subscribeToTasks = (
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
-      const tasks: TaskModel[] = [];
+      // Usar Map para evitar duplicados (por si acaso Firestore devuelve duplicados)
+      const tasksMap = new Map<string, TaskModel>();
       
       snapshot.forEach((doc) => {
         try {
-          const task = convertFirestoreTask(doc);
-          tasks.push(task);
+          // Solo agregar si no existe (evitar duplicados)
+          if (!tasksMap.has(doc.id)) {
+            const task = convertFirestoreTask(doc);
+            tasksMap.set(doc.id, task);
+          }
         } catch (error) {
           console.error(`Error al convertir tarea ${doc.id}:`, error);
         }
       });
+
+      // Convertir Map a Array
+      const tasks = Array.from(tasksMap.values());
 
       // Ordenar: Pendientes primero (por fecha ascendente), luego completadas
       const sortedTasks = tasks.sort((a, b) => {
@@ -101,6 +111,9 @@ export const subscribeToTasks = (
     },
     (error) => {
       console.error('Error en onSnapshot de tareas:', error);
+      if (onError) {
+        onError(error);
+      }
       callback([]);
     }
   );

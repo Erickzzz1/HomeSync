@@ -149,9 +149,9 @@ const TaskItem: React.FC<TaskItemProps> = ({
             <Text style={styles.priorityText}>{task.priority}</Text>
           </View>
           <Text style={styles.assignedText}>
-            👤 {task.assignedTo === currentUserId || assignedUserName === 'Yo' 
-              ? 'Tú' 
-              : getFirstName(assignedUserName)}
+            {task.assignedTo === currentUserId || assignedUserName === 'Yo' 
+              ? 'Asignado para mi' 
+              : `Asignado a: ${getFirstName(assignedUserName)}`}
           </Text>
         </View>
         <Text style={[
@@ -161,6 +161,22 @@ const TaskItem: React.FC<TaskItemProps> = ({
           📅 {formatDate(task.dueDate)}
         </Text>
       </View>
+
+      {/* Categorías */}
+      {task.categories && task.categories.length > 0 && (
+        <View style={styles.categoriesContainer}>
+          {task.categories.slice(0, 3).map((category, index) => (
+            <View key={`${category}-${index}`} style={styles.categoryTag}>
+              <Text style={styles.categoryText}>{category}</Text>
+            </View>
+          ))}
+          {task.categories.length > 3 && (
+            <Text style={styles.moreCategoriesText}>
+              +{task.categories.length - 3} más
+            </Text>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -267,6 +283,32 @@ const styles = StyleSheet.create({
   dueDateOverdue: {
     color: '#FF3B30',
     fontWeight: '600'
+  },
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0'
+  },
+  categoryTag: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12
+  },
+  categoryText: {
+    color: '#1976D2',
+    fontSize: 11,
+    fontWeight: '500'
+  },
+  moreCategoriesText: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic'
   }
 });
 
