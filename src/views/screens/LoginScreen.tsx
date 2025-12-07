@@ -24,6 +24,7 @@ import {
   ScrollView,
   ActivityIndicator
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -32,6 +33,7 @@ import AuthViewModel from '../../viewmodels/AuthViewModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import ApiService from '../../services/ApiService';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -170,9 +172,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
-          {/* Header */}
+          {/* Header con gradiente */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🏠</Text>
+            <View style={styles.logoContainer}>
+              <Ionicons name="home" size={48} color={Colors.white} />
+            </View>
             <Text style={styles.title}>HomeSync</Text>
             <Text style={styles.subtitle}>Asistente Digital del Hogar</Text>
           </View>
@@ -185,7 +189,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.email ? styles.inputError : null]}
                 placeholder="correo@ejemplo.com"
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={Colors.textTertiary}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -207,7 +211,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.password ? styles.inputError : null]}
                 placeholder="Tu contraseña"
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={Colors.textTertiary}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -280,116 +284,127 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF'
+    backgroundColor: Colors.background
   },
   scrollContent: {
     flexGrow: 1
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.xl,
     justifyContent: 'center',
-    paddingVertical: 40
+    paddingVertical: Spacing['3xl']
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48
+    marginBottom: Spacing['4xl']
   },
-  logo: {
-    fontSize: 64,
-    marginBottom: 16
+  logoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.base,
+    ...Shadows.md
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
+    fontSize: Typography.sizes['4xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+    letterSpacing: -0.5
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6B7280'
+    fontSize: Typography.sizes.base,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium
   },
   form: {
     width: '100%'
   },
   inputContainer: {
-    marginBottom: 20
+    marginBottom: Spacing.lg
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm
   },
   input: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
+    fontSize: Typography.sizes.base,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
+    borderColor: Colors.border,
+    color: Colors.textPrimary,
+    ...Shadows.sm
   },
   inputError: {
-    borderColor: '#EF4444'
+    borderColor: Colors.error
   },
   errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4
+    color: Colors.error,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs
   },
   button: {
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: BorderRadius.base,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8
+    marginTop: Spacing.sm,
+    ...Shadows.base
   },
   loginButton: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   buttonDisabled: {
     opacity: 0.6
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.textInverse,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   separator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24
+    marginVertical: Spacing.xl
   },
   separatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E5E7EB'
+    backgroundColor: Colors.border
   },
   separatorText: {
-    marginHorizontal: 16,
-    color: '#6B7280',
-    fontSize: 14
+    marginHorizontal: Spacing.base,
+    color: Colors.textSecondary,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.medium
   },
   registerButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderWidth: 2,
-    borderColor: '#0066FF'
+    borderColor: Colors.blue
   },
   registerButtonText: {
-    color: '#0066FF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.blue,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   footer: {
-    marginTop: 32,
+    marginTop: Spacing['2xl'],
     alignItems: 'center'
   },
   footerText: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
     textAlign: 'center'
   }
 });

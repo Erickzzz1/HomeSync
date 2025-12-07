@@ -27,6 +27,8 @@ import { GroupNotification } from '../../repositories/interfaces/IGroupNotificat
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 
 type FamilyGroupsScreenNavigationProp = StackNavigationProp<AppStackParamList, 'FamilyGroups'>;
 
@@ -313,7 +315,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                     style={styles.notificationDeleteButton}
                     onPress={() => handleDeleteNotification(notification.id)}
                   >
-                    <Text style={[styles.notificationDeleteText, { color: textColor }]}>✕</Text>
+                    <Ionicons name="close" size={20} color={textColor} />
                   </TouchableOpacity>
                 </View>
               );
@@ -338,7 +340,8 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={copyShareCode}
                 disabled={!shareCode}
               >
-                <Text style={styles.copyButtonText}>📋 Copiar</Text>
+                <Ionicons name="copy" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                <Text style={styles.copyButtonText}>Copiar</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -350,13 +353,15 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
             style={[styles.actionButton, styles.joinButton]}
             onPress={() => setShowJoinModal(true)}
           >
-            <Text style={styles.actionButtonText}>🔗 Unirse a un Grupo</Text>
+            <Ionicons name="link" size={18} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+            <Text style={styles.actionButtonText}>Unirse a un Grupo</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.createButton]}
             onPress={() => setShowCreateModal(true)}
           >
-            <Text style={styles.actionButtonText}>+ Crear Nuevo Grupo</Text>
+            <Ionicons name="add" size={18} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+            <Text style={styles.actionButtonText}>Crear Nuevo Grupo</Text>
           </TouchableOpacity>
         </View>
 
@@ -368,7 +373,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : groups.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateEmoji}>👨‍👩‍👧‍👦</Text>
+            <Ionicons name="people" size={64} color={Colors.blue} />
             <Text style={styles.emptyStateTitle}>No tienes grupos familiares</Text>
             <Text style={styles.emptyStateText}>
               Crea un grupo para comenzar a organizar tareas con tu familia
@@ -524,10 +529,10 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA'
+    backgroundColor: Colors.white
   },
   scrollContent: {
-    padding: 20
+    padding: Spacing.lg
   },
   notificationsSection: {
     marginBottom: 20
@@ -592,33 +597,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  notificationDeleteText: {
-    fontSize: 18,
-    color: '#856404',
-    fontWeight: 'bold'
-  },
   section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    ...Shadows.base,
+    borderWidth: 1,
+    borderColor: Colors.border
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm
   },
   sectionDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 20
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.base,
+    lineHeight: Typography.lineHeights.normal * Typography.sizes.sm
   },
   shareCodeLoader: {
     marginVertical: 20
@@ -630,33 +628,43 @@ const styles = StyleSheet.create({
   },
   shareCode: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0066FF',
+    fontSize: Typography.sizes['2xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.blue,
     letterSpacing: 4,
     textAlign: 'center',
-    backgroundColor: '#F0F7FF',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: Colors.blue + '15',
+    padding: Spacing.base,
+    borderRadius: BorderRadius.base,
     borderWidth: 2,
-    borderColor: '#0066FF',
+    borderColor: Colors.blue,
     borderStyle: 'dashed'
   },
   copyButton: {
-    backgroundColor: '#0066FF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12
+    backgroundColor: Colors.blue,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.base,
+    borderRadius: BorderRadius.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.base
   },
   copyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 20
+  },
+  joinButton: {
+    backgroundColor: Colors.blue
+  },
+  createButton: {
+    backgroundColor: Colors.blue
   },
   actionButton: {
     flex: 1,
@@ -664,22 +672,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3
   },
-  joinButton: {
-    backgroundColor: '#34C759'
-  },
-  createButton: {
-    backgroundColor: '#0066FF'
-  },
   actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   loaderContainer: {
     padding: 40,
@@ -693,10 +697,6 @@ const styles = StyleSheet.create({
   emptyState: {
     padding: 40,
     alignItems: 'center'
-  },
-  emptyStateEmoji: {
-    fontSize: 64,
-    marginBottom: 16
   },
   emptyStateTitle: {
     fontSize: 20,
@@ -717,14 +717,12 @@ const styles = StyleSheet.create({
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.base,
+    ...Shadows.base,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.blue
   },
   groupCardContent: {
     flex: 1
@@ -747,7 +745,7 @@ const styles = StyleSheet.create({
   },
   groupArrow: {
     fontSize: 24,
-    color: '#0066FF',
+    color: Colors.blue,
     marginLeft: 12
   },
   modalOverlay: {
@@ -803,7 +801,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB'
   },
   modalButtonCreate: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   modalButtonDisabled: {
     opacity: 0.6

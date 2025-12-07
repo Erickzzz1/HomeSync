@@ -14,6 +14,8 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { logout } from '../../store/slices/authSlice';
@@ -126,7 +128,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.content}>
         {/* Header de Bienvenida */}
         <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeEmoji}>👋</Text>
+          <View style={styles.welcomeIconContainer}>
+            <Ionicons name="hand-left" size={40} color={Colors.white} />
+          </View>
           <Text style={styles.welcomeTitle}>
             {user?.displayName 
               ? `¡Bienvenid@, ${getFirstName(user.displayName)}!`
@@ -136,7 +140,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             Has iniciado sesión en HomeSync
           </Text>
           {user?.email && (
-            <Text style={styles.userEmail}>{user.email}</Text>
+            <View style={styles.emailContainer}>
+              <Ionicons name="mail" size={16} color={Colors.blue} style={styles.emailIcon} />
+              <Text style={styles.userEmail}>{user.email}</Text>
+            </View>
           )}
         </View>
 
@@ -147,7 +154,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.tasksButton}
           onPress={() => navigation.navigate('TaskList')}
         >
-          <Text style={styles.tasksButtonText}>📝 Ver Mis Tareas</Text>
+          <Ionicons name="list" size={20} color={Colors.white} style={styles.buttonIcon} />
+          <Text style={styles.tasksButtonText}>Ver Mis Tareas</Text>
         </TouchableOpacity>
 
         {/* Botón de Grupos Familiares */}
@@ -155,7 +163,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.familyButton}
           onPress={() => navigation.navigate('FamilyGroups')}
         >
-          <Text style={styles.familyButtonText}>👨‍👩‍👧‍👦 Mis Grupos Familiares</Text>
+          <Ionicons name="people" size={20} color={Colors.white} style={styles.buttonIcon} />
+          <Text style={styles.familyButtonText}>Mis Grupos Familiares</Text>
         </TouchableOpacity>
 
         {/* Botón de Cerrar Sesión */}
@@ -197,44 +206,65 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA'
+    backgroundColor: Colors.white
   },
   content: {
     flex: 1,
-    padding: 20
+    padding: Spacing.lg
   },
   welcomeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
     alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    marginBottom: Spacing.lg,
+    ...Shadows.md,
+    borderWidth: 1,
+    borderColor: Colors.border
   },
-  welcomeEmoji: {
-    fontSize: 48,
-    marginBottom: 12
+  welcomeIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.base,
+    ...Shadows.base
   },
   welcomeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
+    fontSize: Typography.sizes['2xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
     textAlign: 'center'
   },
   welcomeSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginBottom: 8
+    fontSize: Typography.sizes.base,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+    fontWeight: Typography.weights.medium
+  },
+  emailContainer: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.blue + '15',
+    borderRadius: BorderRadius.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs
+  },
+  emailIcon: {
+    marginRight: Spacing.xs
   },
   userEmail: {
-    fontSize: 14,
-    color: '#0066FF',
-    fontWeight: '500'
+    fontSize: Typography.sizes.sm,
+    color: Colors.blue,
+    fontWeight: Typography.weights.semibold
+  },
+  buttonIcon: {
+    marginRight: Spacing.sm
   },
   infoCard: {
     backgroundColor: '#FFFFFF',
@@ -276,51 +306,60 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   tasksButton: {
-    backgroundColor: '#0066FF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: Colors.blue,
+    borderRadius: BorderRadius.base,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Shadows.base
   },
   tasksButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   familyButton: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: Colors.blue,
+    borderRadius: BorderRadius.base,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Shadows.base
   },
   familyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   logoutButton: {
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: Colors.red,
+    borderRadius: BorderRadius.base,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
-    marginTop: 'auto'
+    marginTop: 'auto',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Shadows.base
   },
   logoutButtonDisabled: {
     opacity: 0.6
   },
   logoutButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.textInverse,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   footer: {
-    marginTop: 16,
+    marginTop: Spacing.base,
     alignItems: 'center'
   },
   footerText: {
-    fontSize: 12,
-    color: '#6B7280'
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary
   }
 });
 

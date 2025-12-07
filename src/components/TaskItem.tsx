@@ -12,7 +12,9 @@ import {
   StyleSheet,
   Platform
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { TaskModel } from '../models/TaskModel';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../constants/design';
 
 interface TaskItemProps {
   task: TaskModel;
@@ -32,18 +34,18 @@ const TaskItem: React.FC<TaskItemProps> = ({
   onPress
 }) => {
   /**
-   * Obtiene el color según la prioridad
+   * Obtiene el color según la prioridad (solo azul con diferentes intensidades)
    */
   const getPriorityColor = (priority: string): string => {
     switch (priority) {
       case 'Alta':
-        return '#EF4444';
+        return Colors.blue;
       case 'Media':
-        return '#FF9500';
+        return Colors.priorityMedium;
       case 'Baja':
-        return '#34C759';
+        return Colors.priorityLow;
       default:
-        return '#6B7280';
+        return Colors.blue;
     }
   };
 
@@ -133,7 +135,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.deleteButtonText}>🗑️</Text>
+            <Ionicons name="trash" size={20} color={Colors.red} />
           </TouchableOpacity>
         )}
       </View>
@@ -154,12 +156,15 @@ const TaskItem: React.FC<TaskItemProps> = ({
               : `Asignado a: ${getFirstName(assignedUserName)}`}
           </Text>
         </View>
-        <Text style={[
-          styles.dueDateText,
-          new Date(task.dueDate) < new Date() && !task.isCompleted && styles.dueDateOverdue
-        ]}>
-          📅 {formatDate(task.dueDate)}
-        </Text>
+        <View style={styles.dueDateContainer}>
+          <Ionicons name="calendar" size={14} color={new Date(task.dueDate) < new Date() && !task.isCompleted ? Colors.red : Colors.blue} />
+          <Text style={[
+            styles.dueDateText,
+            new Date(task.dueDate) < new Date() && !task.isCompleted && styles.dueDateOverdue
+          ]}>
+            {formatDate(task.dueDate)}
+          </Text>
+        </View>
       </View>
 
       {/* Categorías */}
@@ -183,15 +188,13 @@ const TaskItem: React.FC<TaskItemProps> = ({
 
 const styles = StyleSheet.create({
   taskCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    ...Shadows.base,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.blue
   },
   taskHeader: {
     flexDirection: 'row',
@@ -206,108 +209,110 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: BorderRadius.full,
     borderWidth: 2,
-    borderColor: '#0066FF',
+    borderColor: Colors.blue,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    backgroundColor: '#FFFFFF'
+    marginRight: Spacing.md,
+    backgroundColor: Colors.white
   },
   checkboxChecked: {
-    backgroundColor: '#0066FF',
-    borderColor: '#0066FF'
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue
   },
   checkmark: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.textInverse,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   taskInfo: {
     flex: 1
   },
   taskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs
   },
   taskTitleCompleted: {
     textDecorationLine: 'line-through',
-    color: '#6B7280'
+    color: Colors.textSecondary
   },
   taskDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    lineHeight: Typography.lineHeights.normal * Typography.sizes.sm
   },
   deleteButton: {
     padding: 4,
     marginLeft: 8
   },
-  deleteButtonText: {
-    fontSize: 20
-  },
   taskFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB'
+    borderTopColor: Colors.border
   },
   taskMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: Spacing.sm
   },
   priorityBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm
   },
   priorityText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600'
+    color: Colors.textInverse,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold
   },
   assignedText: {
-    fontSize: 12,
-    color: '#6B7280'
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary
+  },
+  dueDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs
   },
   dueDateText: {
-    fontSize: 12,
-    color: '#6B7280'
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary
   },
   dueDateOverdue: {
-    color: '#EF4444',
-    fontWeight: '600'
+    color: Colors.red,
+    fontWeight: Typography.weights.semibold
   },
   categoriesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    paddingTop: 8,
+    gap: Spacing.xs + 2,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB'
+    borderTopColor: Colors.border
   },
   categoryTag: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12
+    backgroundColor: Colors.blue + '15',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.base
   },
   categoryText: {
-    color: '#0066FF',
-    fontSize: 11,
-    fontWeight: '500'
+    color: Colors.blue,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.medium
   },
   moreCategoriesText: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
     fontStyle: 'italic'
   }
 });

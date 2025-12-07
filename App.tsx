@@ -15,6 +15,7 @@ import RootNavigator from './src/navigation/AppNavigator';
 import { setUser } from './src/store/slices/authSlice';
 import { clearTasks } from './src/store/slices/taskSlice';
 import AuthRepository from './src/repositories/AuthRepository';
+import { Colors } from './src/constants/design';
 
 /**
  * Componente principal de la aplicación
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <Provider store={store}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.blue} />
       <RootNavigator />
     </Provider>
   );

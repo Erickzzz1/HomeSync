@@ -32,6 +32,8 @@ import TaskRepository from '../../repositories/TaskRepository';
 import { scheduleTaskReminder } from '../../services/ReminderService';
 import CategorySelector from '../../components/CategorySelector';
 import { getSavedCategories, saveCategories } from '../../services/CategoryService';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -552,9 +554,10 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                         }
                       }}
                     >
-                      <Text style={styles.dropdownItemText}>
-                        👤 Yo mismo
-                      </Text>
+                    <Ionicons name="person" size={16} color={Colors.blue} style={{ marginRight: Spacing.xs }} />
+                    <Text style={styles.dropdownItemText}>
+                      Yo mismo
+                    </Text>
                     </TouchableOpacity>
                     {familyMembers.map((member) => (
                       <TouchableOpacity
@@ -655,7 +658,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     {dueDate || 'Selecciona una fecha'}
                   </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
+                  <Ionicons name="calendar" size={20} color={Colors.blue} />
                 </TouchableOpacity>
                 {showDatePicker && DateTimePicker && (
                   <DateTimePicker
@@ -721,7 +724,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     {reminderTime || 'Selecciona una hora (opcional)'}
                   </Text>
-                  <Text style={styles.calendarIcon}>🕐</Text>
+                  <Ionicons name="time" size={20} color={Colors.blue} />
                 </TouchableOpacity>
                 {showTimePicker && DateTimePicker && (
                   <DateTimePicker
@@ -871,35 +874,36 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA'
+    backgroundColor: Colors.white
   },
   keyboardView: {
     flex: 1
   },
   scrollContent: {
-    padding: 20
+    padding: Spacing.lg
   },
   inputContainer: {
-    marginBottom: 20
+    marginBottom: Spacing.lg
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
+    fontSize: Typography.sizes.base,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
+    borderColor: Colors.border,
+    color: Colors.textPrimary,
+    ...Shadows.sm
   },
   inputError: {
-    borderColor: '#EF4444'
+    borderColor: Colors.red
   },
   textArea: {
     height: 100,
@@ -907,25 +911,25 @@ const styles = StyleSheet.create({
     paddingTop: 14
   },
   errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4
+    color: Colors.red,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs
   },
   helperText: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4
+    color: Colors.textSecondary,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs
   },
   datePickerButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -938,10 +942,6 @@ const styles = StyleSheet.create({
   datePickerPlaceholder: {
     color: '#6B7280'
   },
-  calendarIcon: {
-    fontSize: 20,
-    marginLeft: 8
-  },
   priorityContainer: {
     flexDirection: 'row',
     gap: 8
@@ -950,22 +950,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     alignItems: 'center'
   },
   priorityButtonHigh: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444'
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue
   },
   priorityButtonMedium: {
-    backgroundColor: '#FF9500',
-    borderColor: '#FF9500'
+    backgroundColor: Colors.priorityMedium,
+    borderColor: Colors.priorityMedium
   },
   priorityButtonLow: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759'
+    backgroundColor: Colors.priorityLow,
+    borderColor: Colors.priorityLow
   },
   priorityButtonText: {
     fontSize: 14,
@@ -973,7 +973,7 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
   priorityButtonTextActive: {
-    color: '#FFFFFF'
+    color: Colors.white
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -988,9 +988,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   cancelButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderWidth: 2,
-    borderColor: '#E5E7EB'
+    borderColor: Colors.border
   },
   cancelButtonText: {
     color: '#6B7280',
@@ -998,12 +998,12 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   createButton: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   createButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   buttonDisabled: {
     opacity: 0.6
@@ -1014,10 +1014,10 @@ const styles = StyleSheet.create({
   emptyFamilyContainer: {
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: Colors.backgroundTertiary,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     borderStyle: 'dashed'
   },
   emptyFamilyText: {
@@ -1027,24 +1027,24 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   addFamilyButton: {
-    backgroundColor: '#0066FF',
+    backgroundColor: Colors.blue,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8
   },
   addFamilyButtonText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 14,
     fontWeight: '600'
   },
   dropdown: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -1064,10 +1064,10 @@ const styles = StyleSheet.create({
   },
   dropdownList: {
     marginTop: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     maxHeight: 200,
     overflow: 'hidden'
   },
@@ -1075,10 +1075,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8F9FA'
+    borderBottomColor: Colors.backgroundTertiary,
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   dropdownItemSelected: {
-    backgroundColor: '#F0F7FF'
+    backgroundColor: Colors.blue + '15'
   },
   dropdownItemText: {
     fontSize: 16,

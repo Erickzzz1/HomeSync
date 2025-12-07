@@ -8,6 +8,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAppSelector } from '../store/hooks';
+import { Colors } from '../constants/design';
 
 // Importar pantallas
 import LoginScreen from '../views/screens/LoginScreen';
@@ -70,9 +71,9 @@ const AppNavigator = () => {
     <AppStack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#4A90E2'
+          backgroundColor: Colors.blue
         },
-        headerTintColor: '#fff',
+        headerTintColor: Colors.white,
         headerTitleStyle: {
           fontWeight: 'bold'
         }
