@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     padding: 20
   },
   alertContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
     width: width * 0.85,
@@ -274,28 +274,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759'
   },
   errorIconContainer: {
-    backgroundColor: '#FF3B30'
+    backgroundColor: '#EF4444'
   },
   checkmark: {
     fontSize: 36,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold'
   },
   errorIcon: {
     fontSize: 36,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold'
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center'
   },
   message: {
     fontSize: 16,
-    color: '#666',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22
@@ -316,25 +316,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759'
   },
   successButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
   confirmButton: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   confirmButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
   cancelButton: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB'
   },
   cancelButtonText: {
-    color: '#666',
+    color: '#6B7280',
     fontSize: 16,
     fontWeight: '600'
   }

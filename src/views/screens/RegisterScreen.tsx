@@ -196,7 +196,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.displayName ? styles.inputError : null]}
                 placeholder="Tu nombre"
-                placeholderTextColor="#999"
+                placeholderTextColor="#6B7280"
                 value={displayName}
                 onChangeText={(text) => {
                   setDisplayName(text);
@@ -218,7 +218,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.email ? styles.inputError : null]}
                 placeholder="correo@ejemplo.com"
-                placeholderTextColor="#999"
+                placeholderTextColor="#6B7280"
                 value={email}
                 onChangeText={(text) => {
                   // Normalizar email mientras el usuario escribe (mejor UX)
@@ -243,7 +243,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.password ? styles.inputError : null]}
                 placeholder="Mínimo 8 caracteres (letras y números)"
-                placeholderTextColor="#999"
+                placeholderTextColor="#6B7280"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -270,7 +270,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
                 placeholder="Repite tu contraseña"
-                placeholderTextColor="#999"
+                placeholderTextColor="#6B7280"
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
@@ -339,7 +339,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: '#FFFFFF'
   },
   scrollContent: {
     flexGrow: 1
@@ -357,18 +357,18 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#4A90E2',
+    color: '#0066FF',
     fontWeight: '600'
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   subtitle: {
     fontSize: 16,
-    color: '#666'
+    color: '#6B7280'
   },
   form: {
     width: '100%'
@@ -379,35 +379,36 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: 'transparent'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   inputError: {
-    borderColor: '#FF3B30'
+    borderColor: '#EF4444'
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#EF4444',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
   },
   helperText: {
-    color: '#999',
+    color: '#6B7280',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
   },
   button: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -418,7 +419,7 @@ const styles = StyleSheet.create({
     opacity: 0.6
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -428,11 +429,11 @@ const styles = StyleSheet.create({
     marginTop: 24
   },
   loginLinkText: {
-    color: '#666',
+    color: '#6B7280',
     fontSize: 14
   },
   loginLink: {
-    color: '#4A90E2',
+    color: '#0066FF',
     fontSize: 14,
     fontWeight: '600'
   },
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 18
   }

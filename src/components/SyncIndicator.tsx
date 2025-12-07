@@ -56,13 +56,13 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
       case 'synced':
         return '#34C759';
       case 'syncing':
-        return '#4A90E2';
+        return '#0066FF';
       case 'error':
-        return '#FF3B30';
+        return '#EF4444';
       case 'offline':
         return '#FF9500';
       default:
-        return '#999';
+        return '#6B7280';
     }
   };
 
@@ -107,7 +107,7 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: getStatusColor() }]}>
       {status === 'syncing' ? (
-        <ActivityIndicator size="small" color="#fff" style={styles.icon} />
+        <ActivityIndicator size="small" color="#FFFFFF" style={styles.icon} />
       ) : (
         <Text style={styles.icon}>{getStatusIcon()}</Text>
       )}
@@ -130,12 +130,12 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 12,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold'
   },
   text: {
     fontSize: 12,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   timeText: {

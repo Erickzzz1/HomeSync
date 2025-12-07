@@ -169,7 +169,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           <TextInput
             style={styles.input}
             placeholder={placeholder}
-            placeholderTextColor="#999"
+            placeholderTextColor="#6B7280"
             value={newCategory}
             onChangeText={setNewCategory}
             onSubmitEditing={handleTextSubmit}
@@ -250,14 +250,14 @@ const styles = StyleSheet.create({
   categoryTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     gap: 6
   },
   categoryText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500'
   },
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   removeButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
     lineHeight: 16
@@ -283,13 +283,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   addButton: {
     width: 36,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   addButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold'
   },
@@ -308,26 +309,26 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center'
   },
   cancelButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold'
   },
   addCategoryButton: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     borderStyle: 'dashed'
   },
   addCategoryButtonText: {
-    color: '#666',
+    color: '#6B7280',
     fontSize: 14,
     textAlign: 'center'
   },
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
   },
   suggestionsLabel: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     marginBottom: 8
   },
   suggestionsScroll: {
@@ -349,10 +350,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#4A90E2'
+    borderColor: '#0066FF'
   },
   suggestionText: {
-    color: '#4A90E2',
+    color: '#0066FF',
     fontSize: 12,
     fontWeight: '500'
   }

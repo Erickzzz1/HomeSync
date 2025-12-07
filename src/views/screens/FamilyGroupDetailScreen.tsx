@@ -294,7 +294,7 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
+          <ActivityIndicator size="large" color="#0066FF" />
           <Text style={styles.loaderText}>Cargando grupo...</Text>
         </View>
       </SafeAreaView>
@@ -368,7 +368,7 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             <TextInput
               style={styles.shareCodeInput}
               placeholder="ABC123"
-              placeholderTextColor="#999"
+              placeholderTextColor="#6B7280"
               value={newShareCode}
               onChangeText={(text) => {
                 const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
@@ -384,7 +384,7 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               disabled={isAdding || newShareCode.length !== 6}
             >
               {isAdding ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.addButtonText}>Agregar</Text>
               )}
@@ -512,7 +512,7 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   scrollContent: {
     padding: 20
@@ -525,10 +525,10 @@ const styles = StyleSheet.create({
   loaderText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666'
+    color: '#6B7280'
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
@@ -541,12 +541,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   sectionDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 16,
     lineHeight: 20
   },
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   shareCodeLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 8
   },
   shareCodeRow: {
@@ -568,30 +568,30 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4A90E2',
+    color: '#0066FF',
     letterSpacing: 4,
     textAlign: 'center',
     backgroundColor: '#F0F7FF',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#4A90E2',
+    borderColor: '#0066FF',
     borderStyle: 'dashed'
   },
   copyButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8
   },
   copyButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
   shareCodeDescription: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     textAlign: 'center'
   },
   leaveGroupButton: {
@@ -602,19 +602,19 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   leaveGroupButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
   deleteGroupButton: {
     marginTop: 12,
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center'
   },
   deleteGroupButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   },
   shareCodeInput: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -633,10 +633,11 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textAlign: 'center',
     borderWidth: 2,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   addButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 12,
@@ -645,7 +646,7 @@ const styles = StyleSheet.create({
     minWidth: 100
   },
   addButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -658,7 +659,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6B7280',
     textAlign: 'center'
   },
   membersList: {
@@ -668,11 +669,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB'
   },
   memberInfo: {
     flex: 1
@@ -686,16 +687,16 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   currentUserBadge: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#4A90E2'
+    color: '#0066FF'
   },
   roleBadge: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#E5E7EB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -707,25 +708,25 @@ const styles = StyleSheet.create({
   roleBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#666'
+    color: '#6B7280'
   },
   roleBadgeTextAdmin: {
     color: '#8B6914'
   },
   memberEmail: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 8
   },
   roleSelector: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0'
+    borderTopColor: '#E5E7EB'
   },
   roleLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 6
   },
   roleButtons: {
@@ -737,31 +738,31 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     alignItems: 'center'
   },
   roleButtonActive: {
-    backgroundColor: '#4A90E2',
-    borderColor: '#4A90E2'
+    backgroundColor: '#0066FF',
+    borderColor: '#0066FF'
   },
   roleButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666'
+    color: '#6B7280'
   },
   roleButtonTextActive: {
-    color: '#fff'
+    color: '#FFFFFF'
   },
   removeButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8
   },
   removeButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   }

@@ -37,13 +37,13 @@ const TaskItem: React.FC<TaskItemProps> = ({
   const getPriorityColor = (priority: string): string => {
     switch (priority) {
       case 'Alta':
-        return '#FF3B30';
+        return '#EF4444';
       case 'Media':
         return '#FF9500';
       case 'Baja':
         return '#34C759';
       default:
-        return '#999';
+        return '#6B7280';
     }
   };
 
@@ -183,7 +183,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
 
 const styles = StyleSheet.create({
   taskCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -208,18 +208,18 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#4A90E2',
+    borderColor: '#0066FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    backgroundColor: '#fff'
+    backgroundColor: '#FFFFFF'
   },
   checkboxChecked: {
-    backgroundColor: '#4A90E2',
-    borderColor: '#4A90E2'
+    backgroundColor: '#0066FF',
+    borderColor: '#0066FF'
   },
   checkmark: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -229,16 +229,16 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 4
   },
   taskTitleCompleted: {
     textDecorationLine: 'line-through',
-    color: '#999'
+    color: '#6B7280'
   },
   taskDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     lineHeight: 20
   },
   deleteButton: {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0'
+    borderTopColor: '#E5E7EB'
   },
   taskMeta: {
     flexDirection: 'row',
@@ -268,20 +268,20 @@ const styles = StyleSheet.create({
     borderRadius: 4
   },
   priorityText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600'
   },
   assignedText: {
     fontSize: 12,
-    color: '#666'
+    color: '#6B7280'
   },
   dueDateText: {
     fontSize: 12,
-    color: '#666'
+    color: '#6B7280'
   },
   dueDateOverdue: {
-    color: '#FF3B30',
+    color: '#EF4444',
     fontWeight: '600'
   },
   categoriesContainer: {
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0'
+    borderTopColor: '#E5E7EB'
   },
   categoryTag: {
     backgroundColor: '#E3F2FD',
@@ -301,13 +301,13 @@ const styles = StyleSheet.create({
     borderRadius: 12
   },
   categoryText: {
-    color: '#1976D2',
+    color: '#0066FF',
     fontSize: 11,
     fontWeight: '500'
   },
   moreCategoriesText: {
     fontSize: 11,
-    color: '#999',
+    color: '#6B7280',
     fontStyle: 'italic'
   }
 });

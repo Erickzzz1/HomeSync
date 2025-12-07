@@ -462,7 +462,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={[styles.input, errors.title && styles.inputError]}
               placeholder="Ej: Lavar la ropa"
-              placeholderTextColor="#999"
+              placeholderTextColor="#6B7280"
               value={title}
               onChangeText={(text) => {
                 // Sanitizar mientras el usuario escribe
@@ -488,7 +488,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                 errors.description && styles.inputError
               ]}
               placeholder="Describe los detalles de la tarea..."
-              placeholderTextColor="#999"
+              placeholderTextColor="#6B7280"
               value={description}
               onChangeText={(text) => {
                 setDescription(text);
@@ -508,7 +508,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Asignado a *</Text>
             {isLoadingFamily ? (
-              <ActivityIndicator size="small" color="#4A90E2" style={styles.loader} />
+              <ActivityIndicator size="small" color="#0066FF" style={styles.loader} />
             ) : familyMembers.length === 0 ? (
               <View style={styles.emptyFamilyContainer}>
                 <Text style={styles.emptyFamilyText}>
@@ -625,8 +625,8 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                     padding: '14px 16px',
                     fontSize: '16px',
                     borderRadius: '12px',
-                    border: errors.dueDate ? '2px solid #FF3B30' : '2px solid #E0E0E0',
-                    backgroundColor: '#fff',
+                    border: errors.dueDate ? '2px solid #EF4444' : '2px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
                     fontFamily: 'inherit',
                     outline: 'none',
                     boxSizing: 'border-box'
@@ -695,8 +695,8 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                     padding: '14px 16px',
                     fontSize: '16px',
                     borderRadius: '12px',
-                    border: '2px solid #E0E0E0',
-                    backgroundColor: '#fff',
+                    border: '2px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
                     fontFamily: 'inherit',
                     outline: 'none',
                     boxSizing: 'border-box'
@@ -844,7 +844,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.createButtonText}>Crear Tarea</Text>
               )}
@@ -871,7 +871,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   keyboardView: {
     flex: 1
@@ -885,20 +885,21 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: 'transparent'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   inputError: {
-    borderColor: '#FF3B30'
+    borderColor: '#EF4444'
   },
   textArea: {
     height: 100,
@@ -906,36 +907,36 @@ const styles = StyleSheet.create({
     paddingTop: 14
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#EF4444',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
   },
   helperText: {
-    color: '#999',
+    color: '#6B7280',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
   },
   datePickerButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#E5E7EB',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
   datePickerButtonText: {
     fontSize: 16,
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   datePickerPlaceholder: {
-    color: '#999'
+    color: '#6B7280'
   },
   calendarIcon: {
     fontSize: 20,
@@ -949,14 +950,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     alignItems: 'center'
   },
   priorityButtonHigh: {
-    backgroundColor: '#FF3B30',
-    borderColor: '#FF3B30'
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444'
   },
   priorityButtonMedium: {
     backgroundColor: '#FF9500',
@@ -969,10 +970,10 @@ const styles = StyleSheet.create({
   priorityButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666'
+    color: '#6B7280'
   },
   priorityButtonTextActive: {
-    color: '#fff'
+    color: '#FFFFFF'
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -987,20 +988,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   cancelButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB'
   },
   cancelButtonText: {
-    color: '#666',
+    color: '#6B7280',
     fontSize: 16,
     fontWeight: '600'
   },
   createButton: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   createButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -1013,60 +1014,60 @@ const styles = StyleSheet.create({
   emptyFamilyContainer: {
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     borderStyle: 'dashed'
   },
   emptyFamilyText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 12,
     textAlign: 'center'
   },
   addFamilyButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8
   },
   addFamilyButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
   dropdown: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#E5E7EB',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
   dropdownText: {
     fontSize: 16,
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   placeholder: {
-    color: '#999'
+    color: '#6B7280'
   },
   dropdownArrow: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     marginLeft: 8
   },
   dropdownList: {
     marginTop: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     maxHeight: 200,
     overflow: 'hidden'
   },
@@ -1074,14 +1075,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5'
+    borderBottomColor: '#F8F9FA'
   },
   dropdownItemSelected: {
     backgroundColor: '#F0F7FF'
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#333'
+    color: '#1F2937'
   }
 });
 

@@ -61,10 +61,10 @@ const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = ({
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'Alta': return '#FF3B30';
+      case 'Alta': return '#EF4444';
       case 'Media': return '#FF9500';
       case 'Baja': return '#34C759';
-      default: return '#8E8E93';
+      default: return '#6B7280';
     }
   };
 
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     padding: 20
   },
   modalContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     width: '100%',
     maxHeight: '90%',
@@ -221,13 +221,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FF3B30',
+    color: '#EF4444',
     marginBottom: 8,
     textAlign: 'center'
   },
   subtitle: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#6B7280',
     marginBottom: 20,
     textAlign: 'center'
   },
@@ -237,11 +237,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: '#1F2937',
     marginBottom: 12
   },
   taskCard: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12
@@ -249,12 +249,12 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: '#1F2937',
     marginBottom: 4
   },
   taskDescription: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#6B7280',
     marginBottom: 12
   },
   taskDetails: {
@@ -267,12 +267,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#6B7280',
     fontWeight: '500'
   },
   detailValue: {
     fontSize: 14,
-    color: '#000'
+    color: '#1F2937'
   },
   priorityBadge: {
     paddingHorizontal: 8,
@@ -280,30 +280,30 @@ const styles = StyleSheet.create({
     borderRadius: 4
   },
   priorityText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600'
   },
   optionButton: {
     borderWidth: 2,
-    borderColor: '#E5E5EA',
+    borderColor: '#E5E7EB',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12
   },
   optionButtonSelected: {
-    borderColor: '#007AFF',
+    borderColor: '#0066FF',
     backgroundColor: '#E3F2FD'
   },
   optionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: '#1F2937',
     marginBottom: 4
   },
   optionDescription: {
     fontSize: 14,
-    color: '#8E8E93'
+    color: '#6B7280'
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA'
+    borderTopColor: '#E5E7EB'
   },
   button: {
     flex: 1,
@@ -320,18 +320,18 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   cancelButton: {
-    backgroundColor: '#F2F2F7'
+    backgroundColor: '#F8F9FA'
   },
   cancelButtonText: {
-    color: '#000',
+    color: '#1F2937',
     fontSize: 16,
     fontWeight: '600'
   },
   resolveButton: {
-    backgroundColor: '#007AFF'
+    backgroundColor: '#0066FF'
   },
   resolveButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600'
   },

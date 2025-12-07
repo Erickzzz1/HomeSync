@@ -517,15 +517,15 @@ const CalendarScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   viewModeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#E5E7EB',
     gap: 8,
     alignItems: 'center'
   },
@@ -534,19 +534,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     alignItems: 'center'
   },
   viewModeButtonActive: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   viewModeText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   viewModeTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   todayButton: {
@@ -558,30 +558,30 @@ const styles = StyleSheet.create({
   },
   todayButtonText: {
     fontSize: 14,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    borderBottomColor: '#E5E7EB'
   },
   navButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     alignItems: 'center',
     justifyContent: 'center'
   },
   navButtonText: {
     fontSize: 24,
-    color: '#4A90E2',
+    color: '#0066FF',
     fontWeight: 'bold'
   },
   headerTitle: {
@@ -590,23 +590,23 @@ const styles = StyleSheet.create({
   monthName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#1F2937'
   },
   weekName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#1F2937'
   },
   yearName: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginTop: 2
   },
   calendarContainer: {
     flex: 1
   },
   calendar: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: 16
   },
   weekDays: {
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   weekDayText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666'
+    color: '#6B7280'
   },
   weekDayColumn: {
     flex: 1,
@@ -634,24 +634,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD'
   },
   weekDayColumnSelected: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   weekDayName: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 4
   },
   weekDayNameToday: {
-    color: '#4A90E2',
+    color: '#0066FF',
     fontWeight: '600'
   },
   weekDayNumber: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#1F2937'
   },
   weekDayNumberToday: {
-    color: '#4A90E2'
+    color: '#0066FF'
   },
   weekTaskIndicator: {
     marginTop: 4,
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   weekTaskCount: {
     fontSize: 10,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold'
   },
   daysGrid: {
@@ -687,22 +687,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD'
   },
   dayCellSelected: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   dayNumber: {
     fontSize: 16,
-    color: '#333',
+    color: '#1F2937',
     fontWeight: '500'
   },
   dayNumberOtherMonth: {
-    color: '#999'
+    color: '#6B7280'
   },
   dayNumberToday: {
-    color: '#4A90E2',
+    color: '#0066FF',
     fontWeight: 'bold'
   },
   dayNumberSelected: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold'
   },
   taskIndicator: {
@@ -719,16 +719,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF9500'
   },
   taskDotMany: {
-    backgroundColor: '#FF3B30'
+    backgroundColor: '#EF4444'
   },
   taskCount: {
     fontSize: 8,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '600'
   },
   tasksContainer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginTop: 16
   },
   tasksHeader: {
@@ -740,12 +740,12 @@ const styles = StyleSheet.create({
   tasksHeaderText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   tasksCount: {
     fontSize: 14,
-    color: '#666'
+    color: '#6B7280'
   },
   emptyTasks: {
     padding: 32,
@@ -753,15 +753,15 @@ const styles = StyleSheet.create({
   },
   emptyTasksText: {
     fontSize: 14,
-    color: '#999'
+    color: '#6B7280'
   },
   taskCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   taskCardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   taskCardPriority: {
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     marginLeft: 8
   },
   taskCardPriorityHigh: {
-    backgroundColor: '#FF3B30'
+    backgroundColor: '#EF4444'
   },
   taskCardPriorityMedium: {
     backgroundColor: '#FF9500'
@@ -799,12 +799,12 @@ const styles = StyleSheet.create({
   },
   taskCardPriorityText: {
     fontSize: 10,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   taskCardDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     lineHeight: 20
   },
   taskCardFooter: {
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
   },
   taskCardAssigned: {
     fontSize: 12,
-    color: '#999'
+    color: '#6B7280'
   },
   taskCardCategories: {
     flexDirection: 'row',
@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
   },
   taskCardCategoryText: {
     fontSize: 10,
-    color: '#1976D2',
+    color: '#0066FF',
     fontWeight: '500'
   }
 });

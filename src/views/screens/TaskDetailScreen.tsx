@@ -437,13 +437,13 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const getPriorityColor = (p: TaskPriority): string => {
     switch (p) {
       case 'Alta':
-        return '#FF3B30';
+        return '#EF4444';
       case 'Media':
         return '#FF9500';
       case 'Baja':
         return '#34C759';
       default:
-        return '#999';
+        return '#6B7280';
     }
   };
 
@@ -465,7 +465,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <TextInput
                 style={[
                   styles.input,
-                  validationErrors.title && styles.inputError
+                  validationErrors.title ? styles.inputError : null
                 ]}
                 value={title}
                 onChangeText={(text) => {
@@ -496,7 +496,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={[
                   styles.input,
                   styles.textArea,
-                  validationErrors.description && styles.inputError
+                  validationErrors.description ? styles.inputError : null
                 ]}
                 value={description}
                 onChangeText={(text) => {
@@ -528,7 +528,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <TextInput
                 style={[
                   styles.input,
-                  validationErrors.assignedTo && styles.inputError
+                  validationErrors.assignedTo ? styles.inputError : null
                 ]}
                 value={assignedTo}
                 onChangeText={(text) => {
@@ -592,8 +592,8 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       padding: '10px 12px',
                       fontSize: '16px',
                       borderRadius: '8px',
-                      border: validationErrors.dueDate ? '1px solid #FF3B30' : '1px solid #E0E0E0',
-                      backgroundColor: '#F5F5F5',
+                      border: validationErrors.dueDate ? '1px solid #EF4444' : '1px solid #E5E7EB',
+                      backgroundColor: '#F8F9FA',
                       fontFamily: 'inherit',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -606,7 +606,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   <TouchableOpacity
                     style={[
                       styles.datePickerButton,
-                      validationErrors.dueDate && styles.inputError
+                      validationErrors.dueDate ? styles.inputError : null
                     ]}
                     onPress={openDatePicker}
                     disabled={isSaving}
@@ -621,7 +621,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       value={selectedDate || new Date()}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event, date) => {
+                      onChange={(event: any, date?: Date) => {
                         handleDateChange(event, date);
                         // Limpiar error cuando el usuario seleccione una fecha
                         if (validationErrors.dueDate && date) {
@@ -765,7 +765,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 ))}
               </View>
             ) : (
-              <Text style={[styles.sectionValue, { color: '#999', fontStyle: 'italic' }]}>
+              <Text style={[styles.sectionValue, { color: '#6B7280', fontStyle: 'italic' }]}>
                 Sin categorías
               </Text>
             )
@@ -839,7 +839,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   scrollContent: {
     padding: 20
@@ -856,12 +856,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759'
   },
   statusText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16
@@ -869,39 +869,40 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#999',
+    color: '#6B7280',
     marginBottom: 8,
     textTransform: 'uppercase'
   },
   sectionValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#1F2937',
     lineHeight: 24
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   datePickerButton: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
   datePickerButtonText: {
     fontSize: 16,
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   calendarIcon: {
@@ -920,14 +921,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     alignItems: 'center'
   },
   priorityButtonHigh: {
-    backgroundColor: '#FF3B30',
-    borderColor: '#FF3B30'
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444'
   },
   priorityButtonMedium: {
     backgroundColor: '#FF9500',
@@ -940,10 +941,10 @@ const styles = StyleSheet.create({
   priorityButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666'
+    color: '#6B7280'
   },
   priorityButtonTextActive: {
-    color: '#fff'
+    color: '#FFFFFF'
   },
   priorityBadge: {
     paddingVertical: 8,
@@ -952,19 +953,19 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start'
   },
   priorityBadgeText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
   metadataContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24
   },
   metadataText: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     marginBottom: 4
   },
   buttonContainer: {
@@ -979,10 +980,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   editButton: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   editButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -990,17 +991,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759'
   },
   saveButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
   cancelButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB'
   },
   cancelButtonText: {
-    color: '#666',
+    color: '#6B7280',
     fontSize: 16,
     fontWeight: '600'
   },
@@ -1008,11 +1009,11 @@ const styles = StyleSheet.create({
     opacity: 0.6
   },
   inputError: {
-    borderColor: '#FF3B30',
+    borderColor: '#EF4444',
     borderWidth: 2
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#EF4444',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
@@ -1024,13 +1025,13 @@ const styles = StyleSheet.create({
     marginTop: 8
   },
   categoryTag: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16
   },
   categoryText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500'
   }

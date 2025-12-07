@@ -165,7 +165,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           disabled={isLoggingOut}
         >
           {isLoggingOut ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
           )}
@@ -197,14 +197,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   content: {
     flex: 1,
     padding: 20
   },
   welcomeCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -222,22 +222,22 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center'
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 8
   },
   userEmail: {
     fontSize: 14,
-    color: '#4A90E2',
+    color: '#0066FF',
     fontWeight: '500'
   },
   infoCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -250,40 +250,40 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 16
   },
   divider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#E5E7EB',
     marginVertical: 12
   },
   featureTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   featureItem: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 4,
     lineHeight: 20
   },
   tasksButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 12
   },
   tasksButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   familyButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
   logoutButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     opacity: 0.6
   },
   logoutButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#999'
+    color: '#6B7280'
   }
 });
 

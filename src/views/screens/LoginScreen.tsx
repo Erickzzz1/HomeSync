@@ -185,7 +185,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.email ? styles.inputError : null]}
                 placeholder="correo@ejemplo.com"
-                placeholderTextColor="#999"
+                placeholderTextColor="#6B7280"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -207,7 +207,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.password ? styles.inputError : null]}
                 placeholder="Tu contraseña"
-                placeholderTextColor="#999"
+                placeholderTextColor="#6B7280"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -280,7 +280,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: '#FFFFFF'
   },
   scrollContent: {
     flexGrow: 1
@@ -302,12 +302,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   subtitle: {
     fontSize: 16,
-    color: '#666'
+    color: '#6B7280'
   },
   form: {
     width: '100%'
@@ -318,23 +318,24 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 2,
-    borderColor: 'transparent'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   inputError: {
-    borderColor: '#FF3B30'
+    borderColor: '#EF4444'
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#EF4444',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4
@@ -347,13 +348,13 @@ const styles = StyleSheet.create({
     marginTop: 8
   },
   loginButton: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   buttonDisabled: {
     opacity: 0.6
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -365,20 +366,20 @@ const styles = StyleSheet.create({
   separatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0'
+    backgroundColor: '#E5E7EB'
   },
   separatorText: {
     marginHorizontal: 16,
-    color: '#999',
+    color: '#6B7280',
     fontSize: 14
   },
   registerButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#4A90E2'
+    borderColor: '#0066FF'
   },
   registerButtonText: {
-    color: '#4A90E2',
+    color: '#0066FF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     textAlign: 'center'
   }
 });

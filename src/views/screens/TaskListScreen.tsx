@@ -812,7 +812,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color="#4A90E2" />
+        <ActivityIndicator size="small" color="#0066FF" />
       </View>
     );
   };
@@ -1039,7 +1039,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       {/* Lista de tareas */}
       {isLoading && !refreshing && displayedTasks.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
+          <ActivityIndicator size="large" color="#0066FF" />
           <Text style={styles.loadingText}>Cargando tareas...</Text>
         </View>
       ) : groupBy === 'none' ? (
@@ -1122,7 +1122,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                 <TextInput
                   style={styles.filterInput}
                   placeholder="Ej: lavar, compras..."
-                  placeholderTextColor="#999"
+                  placeholderTextColor="#6B7280"
                   value={searchText}
                   onChangeText={setSearchText}
                 />
@@ -1223,7 +1223,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                           width: '100%',
                           padding: '10px',
                           borderRadius: '8px',
-                          border: '1px solid #E0E0E0',
+                          border: '1px solid #E5E7EB',
                           fontSize: '14px'
                         }}
                       />
@@ -1231,7 +1231,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                       <TextInput
                         style={styles.filterInput}
                         placeholder="YYYY-MM-DD"
-                        placeholderTextColor="#999"
+                        placeholderTextColor="#6B7280"
                         value={dateFrom}
                         onChangeText={setDateFrom}
                       />
@@ -1248,7 +1248,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                           width: '100%',
                           padding: '10px',
                           borderRadius: '8px',
-                          border: '1px solid #E0E0E0',
+                          border: '1px solid #E5E7EB',
                           fontSize: '14px'
                         }}
                       />
@@ -1256,7 +1256,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                       <TextInput
                         style={styles.filterInput}
                         placeholder="YYYY-MM-DD"
-                        placeholderTextColor="#999"
+                        placeholderTextColor="#6B7280"
                         value={dateTo}
                         onChangeText={setDateTo}
                       />
@@ -1303,21 +1303,21 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   statusBanner: {
     paddingVertical: 8,
     paddingHorizontal: 16
   },
   offlineBanner: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center'
   },
   offlineText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
@@ -1326,11 +1326,11 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    borderBottomColor: '#E5E7EB'
   },
   statBox: {
     flex: 1,
@@ -1339,16 +1339,16 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4A90E2'
+    color: '#0066FF'
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     marginTop: 4
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8
@@ -1358,25 +1358,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     alignItems: 'center'
   },
   filterButtonActive: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   filterButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   filterButtonTextActive: {
-    color: '#fff'
+    color: '#FFFFFF'
   },
   categoryFilterContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    borderBottomColor: '#E5E7EB'
   },
   categoryFilterScroll: {
     paddingHorizontal: 20,
@@ -1386,22 +1386,22 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     marginRight: 8
   },
   categoryFilterButtonActive: {
     backgroundColor: '#E3F2FD',
-    borderColor: '#4A90E2'
+    borderColor: '#0066FF'
   },
   categoryFilterText: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   categoryFilterTextActive: {
-    color: '#1976D2',
+    color: '#0066FF',
     fontWeight: '600'
   },
   listContent: {
@@ -1421,12 +1421,12 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     textAlign: 'center'
   },
   loadingContainer: {
@@ -1437,7 +1437,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666'
+    color: '#6B7280'
   },
   footerLoader: {
     paddingVertical: 20,
@@ -1450,7 +1450,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1460,17 +1460,17 @@ const styles = StyleSheet.create({
     elevation: 8
   },
   fabText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 32,
     fontWeight: '300'
   },
   advancedFilterButtonContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#E5E7EB',
     alignItems: 'center',
     gap: 8
   },
@@ -1483,19 +1483,19 @@ const styles = StyleSheet.create({
   },
   calendarButtonText: {
     fontSize: 14,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   groupByContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    borderBottomColor: '#E5E7EB'
   },
   groupByLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 8,
     fontWeight: '500'
   },
@@ -1506,22 +1506,22 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     marginRight: 8
   },
   groupByButtonActive: {
     backgroundColor: '#E3F2FD',
-    borderColor: '#4A90E2'
+    borderColor: '#0066FF'
   },
   groupByButtonText: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   groupByButtonTextActive: {
-    color: '#1976D2',
+    color: '#0066FF',
     fontWeight: '600'
   },
   sectionHeader: {
@@ -1535,16 +1535,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#4A90E2'
+    borderLeftColor: '#0066FF'
   },
   sectionHeaderTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     flex: 1
   },
   sectionHeaderBadge: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     minWidth: 24,
     height: 24,
     borderRadius: 12,
@@ -1555,7 +1555,7 @@ const styles = StyleSheet.create({
   },
   sectionHeaderBadgeText: {
     fontSize: 12,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold'
   },
   advancedFilterButton: {
@@ -1563,30 +1563,30 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     alignItems: 'center'
   },
   advancedFilterButtonActive: {
     backgroundColor: '#E3F2FD',
-    borderColor: '#4A90E2'
+    borderColor: '#0066FF'
   },
   advancedFilterButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   clearFiltersButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     alignItems: 'center'
   },
   clearFiltersButtonText: {
     fontSize: 14,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   modalOverlay: {
@@ -1595,7 +1595,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end'
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -1608,24 +1608,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    borderBottomColor: '#E5E7EB'
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#1F2937'
   },
   modalCloseButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     alignItems: 'center',
     justifyContent: 'center'
   },
   modalCloseButtonText: {
     fontSize: 18,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: 'bold'
   },
   modalBody: {
@@ -1638,17 +1638,18 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   filterInput: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   priorityFilterContainer: {
     flexDirection: 'row',
@@ -1658,17 +1659,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     alignItems: 'center'
   },
   priorityFilterButtonActive: {
     borderWidth: 2
   },
   priorityFilterButtonHigh: {
-    backgroundColor: '#FF3B30',
-    borderColor: '#FF3B30'
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444'
   },
   priorityFilterButtonMedium: {
     backgroundColor: '#FF9500',
@@ -1680,11 +1681,11 @@ const styles = StyleSheet.create({
   },
   priorityFilterText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   priorityFilterTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   },
   assigneeFilterScroll: {
@@ -1694,22 +1695,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E7EB',
     marginRight: 8
   },
   assigneeFilterButtonActive: {
     backgroundColor: '#E3F2FD',
-    borderColor: '#4A90E2'
+    borderColor: '#0066FF'
   },
   assigneeFilterText: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '500'
   },
   assigneeFilterTextActive: {
-    color: '#1976D2',
+    color: '#0066FF',
     fontWeight: '600'
   },
   dateRangeContainer: {
@@ -1721,7 +1722,7 @@ const styles = StyleSheet.create({
   },
   dateInputLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 4
   },
   modalFooter: {
@@ -1729,31 +1730,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#E5E7EB',
     gap: 12
   },
   modalButtonSecondary: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     alignItems: 'center'
   },
   modalButtonSecondaryText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     fontWeight: '600'
   },
   modalButtonPrimary: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     alignItems: 'center'
   },
   modalButtonPrimaryText: {
     fontSize: 14,
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '600'
   }
 });

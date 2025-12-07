@@ -329,7 +329,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           
           {isLoadingShareCode ? (
-            <ActivityIndicator size="small" color="#4A90E2" style={styles.shareCodeLoader} />
+            <ActivityIndicator size="small" color="#0066FF" style={styles.shareCodeLoader} />
           ) : (
             <View style={styles.shareCodeContainer}>
               <Text style={styles.shareCode}>{shareCode || 'No disponible'}</Text>
@@ -363,7 +363,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
         {/* Lista de grupos */}
         {isLoading ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#4A90E2" />
+            <ActivityIndicator size="large" color="#0066FF" />
             <Text style={styles.loaderText}>Cargando grupos...</Text>
           </View>
         ) : groups.length === 0 ? (
@@ -416,7 +416,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.modalInput}
               placeholder="ABC123"
-              placeholderTextColor="#999"
+              placeholderTextColor="#6B7280"
               value={joinGroupCode}
               onChangeText={(text) => {
                 const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
@@ -444,7 +444,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={isJoining || joinGroupCode.length !== 6}
               >
                 {isJoining ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalButtonCreateText}>Unirse</Text>
                 )}
@@ -471,7 +471,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.modalInput}
               placeholder="Ej: Familia Pérez, Casa Principal..."
-              placeholderTextColor="#999"
+              placeholderTextColor="#6B7280"
               value={newGroupName}
               onChangeText={setNewGroupName}
               maxLength={50}
@@ -495,7 +495,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={isCreating || newGroupName.trim().length < 3}
               >
                 {isCreating ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalButtonCreateText}>Crear</Text>
                 )}
@@ -524,7 +524,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F8F9FA'
   },
   scrollContent: {
     padding: 20
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   notificationsSectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 12
   },
   notificationCard: {
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
@@ -611,12 +611,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   sectionDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 16,
     lineHeight: 20
   },
@@ -632,24 +632,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4A90E2',
+    color: '#0066FF',
     letterSpacing: 4,
     textAlign: 'center',
     backgroundColor: '#F0F7FF',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#4A90E2',
+    borderColor: '#0066FF',
     borderStyle: 'dashed'
   },
   copyButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#0066FF',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 12
   },
   copyButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600'
   },
@@ -671,13 +671,13 @@ const styles = StyleSheet.create({
     elevation: 3
   },
   joinButton: {
-    backgroundColor: '#28A745'
+    backgroundColor: '#34C759'
   },
   createButton: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   actionButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold'
   },
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
   loaderText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666'
+    color: '#6B7280'
   },
   emptyState: {
     padding: 40,
@@ -701,13 +701,13 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center'
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20
   },
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -732,22 +732,22 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 4
   },
   groupMembersCount: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 4
   },
   groupCode: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     fontFamily: 'monospace'
   },
   groupArrow: {
     fontSize: 24,
-    color: '#4A90E2',
+    color: '#0066FF',
     marginLeft: 12
   },
   modalOverlay: {
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     padding: 20
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
     width: '100%',
@@ -767,24 +767,25 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 8
   },
   modalDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
     marginBottom: 20,
     lineHeight: 20
   },
   modalInput: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   modalButtons: {
     flexDirection: 'row',
@@ -797,23 +798,23 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   modalButtonCancel: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    borderColor: '#E5E7EB'
   },
   modalButtonCreate: {
-    backgroundColor: '#4A90E2'
+    backgroundColor: '#0066FF'
   },
   modalButtonDisabled: {
     opacity: 0.6
   },
   modalButtonCancelText: {
-    color: '#666',
+    color: '#6B7280',
     fontSize: 16,
     fontWeight: '600'
   },
   modalButtonCreateText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600'
   }
