@@ -83,6 +83,13 @@ export const signOutFirebase = async (): Promise<void> => {
   }
 };
 
+/**
+ * Obtiene la instancia de Firebase Auth
+ */
+export const getFirebaseAuth = (): Auth => {
+  return auth;
+};
+
 export { auth, firestore };
 export default { auth, firestore };
 

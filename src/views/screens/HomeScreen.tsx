@@ -24,9 +24,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { logout } from '../../store/slices/authSlice';
+import { logout, setUser } from '../../store/slices/authSlice';
 import { clearTasks } from '../../store/slices/taskSlice';
 import AuthRepository from '../../repositories/AuthRepository';
+import AuthViewModel from '../../viewmodels/AuthViewModel';
+import { getFirebaseAuth } from '../../services/FirebaseService';
+import { onAuthStateChanged } from 'firebase/auth';
 import { AppStackParamList } from '../../navigation/AppNavigator';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
@@ -41,11 +44,21 @@ interface Props {
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
-  const { alertState, showError, showConfirm, hideAlert } = useCustomAlert();
+  const { alertState, showError, showConfirm, showSuccess, hideAlert } = useCustomAlert();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [hideVerifiedBadge, setHideVerifiedBadge] = useState(false);
+  const authViewModel = new AuthViewModel();
+
+  // Resetear el estado del badge cuando el usuario se verifica
+  useEffect(() => {
+    if (user?.emailVerified) {
+      setHideVerifiedBadge(false);
+    }
+  }, [user?.emailVerified]);
 
   /**
-   * Inicializa notificaciones cuando el componente se monta
+   * Inicializa notificaciones y listener de verificación de email cuando el componente se monta
    */
   useEffect(() => {
     if (user?.uid) {
@@ -53,7 +66,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       initializeNotifications();
 
       // Configurar listeners de notificaciones
-      const cleanup = setupNotificationListeners(
+      const notificationCleanup = setupNotificationListeners(
         (notification) => {
           // Notificación recibida mientras la app está en primer plano
           console.log('Notificación recibida:', notification);
@@ -74,9 +87,86 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
       );
 
-      return cleanup;
+      // Verificar periódicamente si el email fue verificado (solo si no está verificado)
+      let checkVerificationInterval: NodeJS.Timeout | null = null;
+      
+      if (user && !user.emailVerified) {
+        checkVerificationInterval = setInterval(async () => {
+          try {
+            const result = await authViewModel.reloadUser();
+            // Si el email se verificó, actualizar Redux y mostrar mensaje
+            if (result.success && result.user?.emailVerified) {
+              // Detener el intervalo primero para evitar más ejecuciones
+              if (checkVerificationInterval) {
+                clearInterval(checkVerificationInterval);
+                checkVerificationInterval = null;
+              }
+              
+              // Actualizar Redux directamente para que el componente se re-renderice inmediatamente
+              dispatch(setUser(result.user));
+              
+              showSuccess(
+                '¡Email verificado!',
+                'Tu correo electrónico ha sido verificado correctamente.',
+                () => hideAlert(),
+                true,
+                3000
+              );
+            }
+          } catch (error) {
+            // Silenciar errores de polling
+          }
+        }, 3000); // Verificar cada 3 segundos mientras no esté verificado
+      }
+
+      // Limpiar cuando el componente se desmonte o el usuario cambie
+      return () => {
+        notificationCleanup();
+        if (checkVerificationInterval) {
+          clearInterval(checkVerificationInterval);
+        }
+      };
     }
-  }, [user?.uid, navigation]);
+  }, [user?.uid, user?.emailVerified, navigation]);
+
+  /**
+   * Efecto adicional: Detectar cuando el usuario regresa a la app después de verificar
+   */
+  useEffect(() => {
+    if (user?.uid && !user.emailVerified) {
+      // Verificar estado cuando el componente se enfoca (usuario regresa a la app)
+      const checkOnFocus = async () => {
+        try {
+          const result = await authViewModel.reloadUser();
+          // Si el email se verificó, actualizar Redux inmediatamente
+          if (result.success && result.user?.emailVerified) {
+            dispatch(setUser(result.user));
+            showSuccess(
+              '¡Email verificado!',
+              'Tu correo electrónico ha sido verificado correctamente.',
+              () => hideAlert(),
+              true,
+              3000
+            );
+          }
+        } catch (error) {
+          // Silenciar errores
+        }
+      };
+
+      // Verificar inmediatamente
+      checkOnFocus();
+
+      // También verificar cuando la app vuelve al primer plano
+      const subscription = navigation.addListener('focus', () => {
+        checkOnFocus();
+      });
+
+      return () => {
+        subscription();
+      };
+    }
+  }, [user?.uid, user?.emailVerified, navigation, dispatch]);
 
   /**
    * Extrae solo el primer nombre del nombre completo
@@ -101,6 +191,37 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       'Cerrar Sesión',
       'Cancelar'
     );
+  };
+
+  /**
+   * Maneja el reenvío del email de verificación
+   */
+  const handleResendVerification = async () => {
+    setIsSendingVerification(true);
+    try {
+      const result = await authViewModel.sendEmailVerification();
+      
+      if (result.success) {
+        showSuccess(
+          'Email de verificación enviado',
+          'Revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta.',
+          () => hideAlert(),
+          true,
+          4000
+        );
+        // Recargar usuario después de un momento para verificar si ya está verificado
+        setTimeout(async () => {
+          await authViewModel.reloadUser();
+        }, 2000);
+      } else {
+        showError(result.error || 'No se pudo enviar el email de verificación');
+      }
+    } catch (error) {
+      console.error('Error al reenviar verificación:', error);
+      showError('Error inesperado al enviar el email de verificación');
+    } finally {
+      setIsSendingVerification(false);
+    }
   };
 
   /**
@@ -161,6 +282,48 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.emailContainer}>
                   <Ionicons name="mail" size={16} color={Colors.blue} style={styles.emailIcon} />
                   <Text style={styles.userEmail}>{user.email}</Text>
+                </View>
+              )}
+              
+              {/* Banner de verificación de email */}
+              {user && !user.emailVerified && (
+                <View style={styles.verificationBanner}>
+                  <View style={styles.verificationContent}>
+                    <Ionicons name="mail-unread" size={20} color={Colors.orange} style={styles.verificationIcon} />
+                    <View style={styles.verificationTextContainer}>
+                      <Text style={styles.verificationTitle}>Verifica tu correo electrónico</Text>
+                      <Text style={styles.verificationText}>
+                        Hemos enviado un enlace de verificación a tu correo. Por favor, verifica tu cuenta.
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.resendButton, isSendingVerification && styles.resendButtonDisabled]}
+                    onPress={handleResendVerification}
+                    disabled={isSendingVerification}
+                  >
+                    {isSendingVerification ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <>
+                        <Ionicons name="refresh" size={16} color={Colors.white} style={{ marginRight: 4 }} />
+                        <Text style={styles.resendButtonText}>Reenviar</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {user?.emailVerified && !hideVerifiedBadge && (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.green} style={{ marginRight: 4 }} />
+                  <Text style={styles.verifiedText}>Correo verificado</Text>
+                  <TouchableOpacity
+                    onPress={() => setHideVerifiedBadge(true)}
+                    style={styles.closeBadgeButton}
+                  >
+                    <Ionicons name="close" size={16} color={Colors.green} />
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -314,6 +477,77 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.blue,
     fontWeight: Typography.weights.semibold
+  },
+  verificationBanner: {
+    marginTop: Spacing.md,
+    padding: Spacing.base,
+    backgroundColor: '#FFF4E6',
+    borderRadius: BorderRadius.base,
+    borderWidth: 1,
+    borderColor: Colors.orange + '40',
+    ...Shadows.sm
+  },
+  verificationContent: {
+    flexDirection: 'row',
+    marginBottom: Spacing.sm
+  },
+  verificationIcon: {
+    marginRight: Spacing.sm
+  },
+  verificationTextContainer: {
+    flex: 1
+  },
+  verificationTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs
+  },
+  verificationText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.xs
+  },
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    backgroundColor: Colors.orange,
+    borderRadius: BorderRadius.base,
+    ...Shadows.sm
+  },
+  resendButtonDisabled: {
+    opacity: 0.6
+  },
+  resendButtonText: {
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
+  },
+  verifiedBadge: {
+    marginTop: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    backgroundColor: Colors.green + '15',
+    borderRadius: BorderRadius.base,
+    borderWidth: 1,
+    borderColor: Colors.green + '40'
+  },
+  verifiedText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.green,
+    fontWeight: Typography.weights.semibold,
+    flex: 1
+  },
+  closeBadgeButton: {
+    marginLeft: Spacing.sm,
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.full
   },
   buttonIcon: {
     marginRight: Spacing.sm

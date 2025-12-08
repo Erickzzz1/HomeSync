@@ -12,6 +12,11 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // Función helper: Verifica si el email está verificado (opcional, para reglas más estrictas)
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+    
     // Reglas para la colección 'users'
     match /users/{userId} {
       // LEER: Cualquier usuario autenticado puede leer su propio documento
@@ -45,7 +50,9 @@ service cloud.firestore {
                         request.resource.data.email == resource.data.email &&
                         // Permitir cambios en familyMembers y updatedAt
                         request.resource.data.familyMembers is list)
-                     );
+                     ) ||
+                     // Permitir actualizar emailVerified desde el backend
+                     request.auth == null;
       
       // ELIMINAR: Solo si está autenticado y es el propietario
       allow delete: if isAuthenticated() && 

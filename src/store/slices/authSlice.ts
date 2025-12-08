@@ -16,6 +16,7 @@ interface AuthState {
     uid: string;
     email: string | null;
     displayName: string | null;
+    emailVerified?: boolean;
   } | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -47,7 +48,8 @@ const authSlice = createSlice({
         state.user = {
           uid: action.payload.uid,
           email: action.payload.email,
-          displayName: action.payload.displayName
+          displayName: action.payload.displayName,
+          emailVerified: action.payload.emailVerified || false
         };
         state.isAuthenticated = true;
       } else {

@@ -72,5 +72,17 @@ export interface IAuthRepository {
    * @returns Función para cancelar la suscripción
    */
   onAuthStateChanged(callback: (user: User | null) => void): () => void;
+
+  /**
+   * Envía un email de verificación al usuario actual
+   * @returns Resultado de la operación
+   */
+  sendEmailVerification(): Promise<AuthResult>;
+
+  /**
+   * Recarga la información del usuario actual (para actualizar emailVerified)
+   * @returns Resultado de la operación
+   */
+  reloadUser(): Promise<AuthResult>;
 }
 

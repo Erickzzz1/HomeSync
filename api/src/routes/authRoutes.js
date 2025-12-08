@@ -7,7 +7,9 @@ import {
   signUp,
   signIn,
   signOut,
-  getCurrentUser
+  getCurrentUser,
+  sendVerificationEmail,
+  verifyEmail
 } from '../controllers/authController.js';
 import { verifyToken } from '../middleware/auth.js';
 
@@ -20,5 +22,7 @@ router.post('/signout', signOut);
 
 // Rutas protegidas
 router.get('/me', verifyToken, getCurrentUser);
+router.post('/send-verification', verifyToken, sendVerificationEmail);
+router.post('/verify-email', verifyEmail);
 
 export default router;

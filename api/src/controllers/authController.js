@@ -8,7 +8,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  updateProfile
+  updateProfile,
+  sendEmailVerification,
+  applyActionCode,
+  checkActionCode,
+  verifyPasswordResetCode
 } from 'firebase/auth';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../config/firebase.js';
@@ -96,6 +100,7 @@ export const signUp = async (req, res) => {
           uid: userCredential.user.uid,
           email: userCredential.user.email,
           displayName: displayName || null,
+          emailVerified: userCredential.user.emailVerified || false,
           shareCode: shareCode,
           familyMembers: [], // Array vacío inicial
           createdAt: new Date().toISOString(),
@@ -108,6 +113,15 @@ export const signUp = async (req, res) => {
         // El usuario puede funcionar sin el documento inicialmente
       }
     })(); // Ejecutar en segundo plano sin await
+
+    // Enviar email de verificación
+    try {
+      await sendEmailVerification(userCredential.user);
+      console.log('Email de verificación enviado a:', userCredential.user.email);
+    } catch (verificationError) {
+      console.error('Error al enviar email de verificación:', verificationError);
+      // No fallar el registro si falla el envío del email
+    }
 
     // Obtener token de ID
     const token = await userCredential.user.getIdToken();
@@ -231,6 +245,62 @@ export const getCurrentUser = async (req, res) => {
       success: false,
       error: 'No se pudo obtener el usuario',
       errorCode: 'GET_USER_ERROR'
+    });
+  }
+};
+
+/**
+ * Envía email de verificación al usuario actual
+ * Nota: Esta funcionalidad se maneja mejor desde el cliente usando Firebase Auth SDK
+ * Se mantiene aquí por compatibilidad pero se recomienda usar el método del repositorio
+ */
+export const sendVerificationEmail = async (req, res) => {
+  try {
+    // Esta funcionalidad se maneja mejor desde el cliente
+    // El cliente puede usar sendEmailVerification directamente desde Firebase Auth
+    res.json({
+      success: true,
+      message: 'Usa el método sendEmailVerification del AuthRepository en el cliente'
+    });
+  } catch (error) {
+    console.error('Error al enviar email de verificación:', error);
+    res.status(400).json({
+      success: false,
+      error: 'No se pudo enviar el email de verificación',
+      errorCode: 'SEND_VERIFICATION_ERROR'
+    });
+  }
+};
+
+/**
+ * Verifica el email usando el código de acción
+ */
+export const verifyEmail = async (req, res) => {
+  try {
+    const { actionCode } = req.body;
+
+    if (!actionCode) {
+      return res.status(400).json({
+        success: false,
+        error: 'Código de acción requerido',
+        errorCode: 'VALIDATION_ERROR'
+      });
+    }
+
+    // Verificar el código de acción
+    await applyActionCode(auth, actionCode);
+
+    res.json({
+      success: true,
+      message: 'Email verificado correctamente'
+    });
+  } catch (error) {
+    console.error('Error al verificar email:', error);
+    const errorMessage = handleAuthError(error);
+    res.status(400).json({
+      success: false,
+      error: errorMessage,
+      errorCode: error.code || 'VERIFY_EMAIL_ERROR'
     });
   }
 };

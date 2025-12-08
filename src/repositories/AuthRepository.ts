@@ -12,7 +12,9 @@
  */
 
 import ApiService from '../services/ApiService';
-import { syncFirebaseAuth, signOutFirebase } from '../services/FirebaseService';
+import { syncFirebaseAuth, signOutFirebase, getFirebaseAuth, firestore } from '../services/FirebaseService';
+import { sendEmailVerification, reload } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import {
   IAuthRepository,
   AuthResult,
@@ -185,6 +187,17 @@ class AuthRepository implements IAuthRepository {
       // Guardar token
       if (response.token) {
         await ApiService.saveToken(response.token);
+      }
+
+      // Sincronizar autenticación con Firebase Auth para que podamos enviar email de verificación
+      if (response.user?.email && data.password) {
+        try {
+          await syncFirebaseAuth(data.email, data.password);
+          // El email de verificación ya se envió automáticamente en el backend
+        } catch (firebaseAuthError) {
+          // No fallar el registro si falla la sincronización con Firebase
+          console.warn('No se pudo sincronizar con Firebase Auth, pero el registro fue exitoso:', firebaseAuthError);
+        }
       }
 
       // Convertir usuario de API a formato Firebase
@@ -494,6 +507,126 @@ class AuthRepository implements IAuthRepository {
   private isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  }
+
+  /**
+   * Envía un email de verificación al usuario actual
+   * 
+   * @returns Resultado de la operación
+   */
+  async sendEmailVerification(): Promise<AuthResult> {
+    try {
+      const firebaseAuth = getFirebaseAuth();
+      const currentUser = firebaseAuth.currentUser;
+
+      if (!currentUser) {
+        return {
+          success: false,
+          error: 'No hay usuario autenticado',
+          errorCode: 'NO_USER'
+        };
+      }
+
+      if (currentUser.emailVerified) {
+        return {
+          success: false,
+          error: 'El correo electrónico ya está verificado',
+          errorCode: 'ALREADY_VERIFIED'
+        };
+      }
+
+      await sendEmailVerification(currentUser);
+
+      // Actualizar Firestore para indicar que se envió el email de verificación
+      // (aún no está verificado, pero se envió el email)
+      try {
+        const userDocRef = doc(firestore, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          emailVerified: false, // Aún no verificado, pero se envió el email
+          updatedAt: new Date().toISOString()
+        });
+      } catch (firestoreError) {
+        // No fallar si no se puede actualizar Firestore
+        console.warn('No se pudo actualizar Firestore al enviar verificación:', firestoreError);
+      }
+
+      return {
+        success: true
+      };
+    } catch (error: any) {
+      console.error('Error al enviar email de verificación:', error);
+      
+      let errorMessage = 'No se pudo enviar el email de verificación';
+      if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Demasiados intentos. Espera unos minutos antes de intentar nuevamente';
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        errorCode: error.code || 'SEND_VERIFICATION_ERROR'
+      };
+    }
+  }
+
+  /**
+   * Recarga la información del usuario actual (para actualizar emailVerified)
+   * También actualiza el documento en Firestore
+   * 
+   * @returns Resultado de la operación
+   */
+  async reloadUser(): Promise<AuthResult> {
+    try {
+      const firebaseAuth = getFirebaseAuth();
+      const currentUser = firebaseAuth.currentUser;
+
+      if (!currentUser) {
+        return {
+          success: false,
+          error: 'No hay usuario autenticado',
+          errorCode: 'NO_USER'
+        };
+      }
+
+      // Recargar información del usuario
+      await reload(currentUser);
+
+      // Sincronizar el estado de verificación en Firestore
+      try {
+        const userDocRef = doc(firestore, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          emailVerified: currentUser.emailVerified,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (firestoreError) {
+        // No fallar si no se puede actualizar Firestore
+        console.warn('No se pudo actualizar emailVerified en Firestore:', firestoreError);
+      }
+
+      // Obtener información actualizada
+      const updatedUser = this.apiUserToFirebaseUser({
+        uid: currentUser.uid,
+        email: currentUser.email,
+        displayName: currentUser.displayName,
+        emailVerified: currentUser.emailVerified
+      });
+
+      // Actualizar estado local
+      this.currentUser = updatedUser;
+      this.notifyAuthStateChange(updatedUser);
+
+      return {
+        success: true,
+        user: updatedUser
+      };
+    } catch (error: any) {
+      console.error('Error al recargar usuario:', error);
+      return {
+        success: false,
+        error: 'No se pudo actualizar la información del usuario',
+        errorCode: error.code || 'RELOAD_ERROR'
+      };
+    }
   }
 }
 

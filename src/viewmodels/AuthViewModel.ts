@@ -212,6 +212,54 @@ class AuthViewModel {
   }
 
   /**
+   * Envía un email de verificación al usuario actual
+   * 
+   * @returns Resultado de la operación
+   */
+  async sendEmailVerification(): Promise<AuthResult> {
+    this.updateState({
+      status: AuthStatus.LOADING,
+      error: null
+    });
+
+    const result = await this.authRepository.sendEmailVerification();
+
+    if (result.success) {
+      this.updateState({
+        status: AuthStatus.SUCCESS,
+        error: null
+      });
+    } else {
+      this.updateState({
+        status: AuthStatus.ERROR,
+        error: result.error || 'Error al enviar email de verificación'
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Recarga la información del usuario actual
+   * 
+   * @returns Resultado de la operación
+   */
+  async reloadUser(): Promise<AuthResult> {
+    const result = await this.authRepository.reloadUser();
+
+    if (result.success && result.user) {
+      this.updateState({
+        status: AuthStatus.SUCCESS,
+        user: result.user,
+        isAuthenticated: true,
+        error: null
+      });
+    }
+
+    return result;
+  }
+
+  /**
    * Cierra la sesión del usuario actual
    * 
    * @returns Resultado de la operación
