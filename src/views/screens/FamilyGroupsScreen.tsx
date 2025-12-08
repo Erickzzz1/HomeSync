@@ -15,7 +15,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Modal
+  Modal,
+  Dimensions
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
@@ -29,6 +30,9 @@ import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type FamilyGroupsScreenNavigationProp = StackNavigationProp<AppStackParamList, 'FamilyGroups'>;
 
@@ -268,7 +272,11 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Notificaciones de grupos */}
         {notifications.length > 0 && (
           <View style={styles.notificationsSection}>
@@ -331,7 +339,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           
           {isLoadingShareCode ? (
-            <ActivityIndicator size="small" color="#0066FF" style={styles.shareCodeLoader} />
+            <ActivityIndicator size="small" color={Colors.blue} style={styles.shareCodeLoader} />
           ) : (
             <View style={styles.shareCodeContainer}>
               <Text style={styles.shareCode}>{shareCode || 'No disponible'}</Text>
@@ -340,8 +348,15 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={copyShareCode}
                 disabled={!shareCode}
               >
-                <Ionicons name="copy" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
-                <Text style={styles.copyButtonText}>Copiar</Text>
+                <LinearGradient
+                  colors={[Colors.blue, Colors.blueDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.copyButtonGradient}
+                >
+                  <Ionicons name="copy" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                  <Text style={styles.copyButtonText}>Copiar</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
@@ -350,25 +365,39 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
         {/* Botones de acción */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.joinButton]}
+            style={styles.actionButton}
             onPress={() => setShowJoinModal(true)}
           >
-            <Ionicons name="link" size={18} color={Colors.white} style={{ marginRight: Spacing.xs }} />
-            <Text style={styles.actionButtonText}>Unirse a un Grupo</Text>
+            <LinearGradient
+              colors={[Colors.blue, Colors.blueDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.actionButtonGradient}
+            >
+              <Ionicons name="link" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+              <Text style={styles.actionButtonText}>Unirse a un Grupo</Text>
+            </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, styles.createButton]}
+            style={styles.actionButton}
             onPress={() => setShowCreateModal(true)}
           >
-            <Ionicons name="add" size={18} color={Colors.white} style={{ marginRight: Spacing.xs }} />
-            <Text style={styles.actionButtonText}>Crear Nuevo Grupo</Text>
+            <LinearGradient
+              colors={[Colors.orange, Colors.orangeDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.actionButtonGradient}
+            >
+              <Ionicons name="add" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+              <Text style={styles.actionButtonText}>Crear Nuevo Grupo</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {/* Lista de grupos */}
         {isLoading ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#0066FF" />
+            <ActivityIndicator size="large" color={Colors.blue} />
             <Text style={styles.loaderText}>Cargando grupos...</Text>
           </View>
         ) : groups.length === 0 ? (
@@ -399,7 +428,8 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
             ))}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </LinearGradient>
 
       {/* Modal para unirse a un grupo */}
       <Modal
@@ -444,15 +474,22 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.modalButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCreate, isJoining && styles.modalButtonDisabled]}
+                style={[styles.modalButton, isJoining && styles.modalButtonDisabled]}
                 onPress={handleJoinGroup}
                 disabled={isJoining || joinGroupCode.length !== 6}
               >
-                {isJoining ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalButtonCreateText}>Unirse</Text>
-                )}
+                <LinearGradient
+                  colors={[Colors.blue, Colors.blueDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalButtonGradient}
+                >
+                  {isJoining ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalButtonCreateText}>Unirse</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -495,15 +532,22 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.modalButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCreate, isCreating && styles.modalButtonDisabled]}
+                style={[styles.modalButton, isCreating && styles.modalButtonDisabled]}
                 onPress={handleCreateGroup}
                 disabled={isCreating || newGroupName.trim().length < 3}
               >
-                {isCreating ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalButtonCreateText}>Crear</Text>
-                )}
+                <LinearGradient
+                  colors={[Colors.orange, Colors.orangeDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalButtonGradient}
+                >
+                  {isCreating ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalButtonCreateText}>Crear</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -528,11 +572,17 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Colors.white
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   scrollContent: {
-    padding: Spacing.lg
+    padding: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingBottom: Spacing.xl,
+    maxWidth: 700,
+    alignSelf: 'center',
+    width: '100%'
   },
   notificationsSection: {
     marginBottom: 20
@@ -546,16 +596,12 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     backgroundColor: '#FFF3CD',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: '#FFC107',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    ...Shadows.sm
   },
   notificationCardAdded: {
     backgroundColor: '#D1ECF1',
@@ -566,8 +612,8 @@ const styles = StyleSheet.create({
     borderLeftColor: '#DC3545'
   },
   notificationCardLeft: {
-    backgroundColor: '#FFE5CC',
-    borderLeftColor: '#FF9500'
+    backgroundColor: Colors.blue + '20',
+    borderLeftColor: Colors.blue
   },
   notificationCardAdmin: {
     backgroundColor: '#D1ECF1',
@@ -599,12 +645,10 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.base,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
-    ...Shadows.base,
-    borderWidth: 1,
-    borderColor: Colors.border
+    ...Shadows.md
   },
   sectionTitle: {
     fontSize: Typography.sizes.lg,
@@ -633,22 +677,26 @@ const styles = StyleSheet.create({
     color: Colors.blue,
     letterSpacing: 4,
     textAlign: 'center',
-    backgroundColor: Colors.blue + '15',
-    padding: Spacing.base,
+    backgroundColor: '#F0F7FF',
+    padding: Spacing.base + 4,
     borderRadius: BorderRadius.base,
     borderWidth: 2,
     borderColor: Colors.blue,
-    borderStyle: 'dashed'
+    borderStyle: 'dashed',
+    ...Shadows.sm
   },
   copyButton: {
-    backgroundColor: Colors.blue,
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    ...Shadows.base
+  },
+  copyButtonGradient: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.base,
-    borderRadius: BorderRadius.base,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.base
+    borderRadius: BorderRadius.base
   },
   copyButtonText: {
     color: Colors.white,
@@ -657,33 +705,27 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20
-  },
-  joinButton: {
-    backgroundColor: Colors.blue
-  },
-  createButton: {
-    backgroundColor: Colors.blue
+    gap: Spacing.base,
+    marginBottom: Spacing.lg
   },
   actionButton: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  actionButtonGradient: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.base,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    borderRadius: BorderRadius.base
   },
   actionButtonText: {
     color: Colors.white,
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.bold
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   loaderContainer: {
     padding: 40,
@@ -695,21 +737,23 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
   emptyState: {
-    padding: 40,
+    padding: Spacing['3xl'],
     alignItems: 'center'
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
+    fontSize: Typography.sizes['2xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginTop: Spacing.base,
+    marginBottom: Spacing.sm,
     textAlign: 'center'
   },
   emptyStateText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
+    paddingHorizontal: Spacing.lg
   },
   groupsList: {
     gap: 12
@@ -718,9 +762,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.base,
-    padding: Spacing.base,
-    ...Shadows.base,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base + 4,
+    marginBottom: Spacing.md,
+    ...Shadows.md,
     borderLeftWidth: 4,
     borderLeftColor: Colors.blue
   },
@@ -728,20 +773,22 @@ const styles = StyleSheet.create({
     flex: 1
   },
   groupName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 4
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs
   },
   groupMembersCount: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+    fontWeight: Typography.weights.medium
   },
   groupCode: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontFamily: 'monospace'
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    fontFamily: 'monospace',
+    fontWeight: Typography.weights.semibold
   },
   groupArrow: {
     fontSize: 24,
@@ -757,10 +804,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
     width: '100%',
-    maxWidth: 400
+    maxWidth: 400,
+    ...Shadows.lg
   },
   modalTitle: {
     fontSize: 20,
@@ -775,15 +823,16 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   modalInput: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    marginBottom: 20,
+    backgroundColor: '#FAFBFC',
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
+    fontSize: Typography.sizes.base,
+    marginBottom: Spacing.lg,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
+    borderColor: '#E0E7FF',
+    color: Colors.textPrimary,
+    ...Shadows.sm
   },
   modalButtons: {
     flexDirection: 'row',
@@ -791,30 +840,35 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center'
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  modalButtonGradient: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   modalButtonCancel: {
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E5E7EB'
-  },
-  modalButtonCreate: {
-    backgroundColor: Colors.blue
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.border
   },
   modalButtonDisabled: {
     opacity: 0.6
   },
   modalButtonCancelText: {
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '600'
+    color: Colors.textSecondary,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    paddingVertical: Spacing.md,
+    textAlign: 'center'
   },
   modalButtonCreateText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   }
 });
 

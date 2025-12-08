@@ -121,6 +121,14 @@ class ApiService {
         if (response.status === 409) {
           return data;
         }
+        // Para errores 401 (no autorizado), crear error con código para que sea manejado silenciosamente
+        if (response.status === 401) {
+          const error = new Error(data.error || data.message || 'No autorizado');
+          (error as any).response = data;
+          (error as any).status = 401;
+          (error as any).errorCode = 'UNAUTHORIZED';
+          throw error;
+        }
         const errorMessage = data.error || data.message || 'Error en la petición';
         const error = new Error(errorMessage);
         // Agregar información adicional al error

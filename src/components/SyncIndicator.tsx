@@ -6,6 +6,8 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Colors } from '../constants/design';
+import { Ionicons } from '@expo/vector-icons';
 
 export type SyncStatus = 'synced' | 'syncing' | 'error' | 'offline';
 
@@ -54,15 +56,15 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
   const getStatusColor = (): string => {
     switch (status) {
       case 'synced':
-        return '#34C759';
+        return Colors.blue;
       case 'syncing':
-        return '#0066FF';
+        return Colors.blue;
       case 'error':
-        return '#EF4444';
+        return Colors.red;
       case 'offline':
-        return '#FF9500';
+        return Colors.blueDark;
       default:
-        return '#6B7280';
+        return Colors.textSecondary;
     }
   };
 
@@ -89,18 +91,18 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
   /**
    * Obtiene el ícono según el estado
    */
-  const getStatusIcon = (): string => {
+  const getStatusIcon = () => {
     switch (status) {
       case 'synced':
-        return '✓';
+        return <Ionicons name="checkmark" size={12} color="#FFFFFF" />;
       case 'syncing':
-        return '';
+        return null;
       case 'error':
-        return '⚠';
+        return <Ionicons name="warning" size={12} color="#FFFFFF" />;
       case 'offline':
-        return '📡';
+        return <Ionicons name="radio" size={12} color="#FFFFFF" />;
       default:
-        return '?';
+        return <Text style={styles.icon}>?</Text>;
     }
   };
 
@@ -109,7 +111,7 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
       {status === 'syncing' ? (
         <ActivityIndicator size="small" color="#FFFFFF" style={styles.icon} />
       ) : (
-        <Text style={styles.icon}>{getStatusIcon()}</Text>
+        <View style={styles.icon}>{getStatusIcon()}</View>
       )}
       <Text style={styles.text}>{getStatusText()}</Text>
       {lastSyncTime && status === 'synced' && (
@@ -129,9 +131,10 @@ const styles = StyleSheet.create({
     gap: 6
   },
   icon: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: 'bold'
+    width: 12,
+    height: 12,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   text: {
     fontSize: 12,

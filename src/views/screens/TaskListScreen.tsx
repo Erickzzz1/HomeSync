@@ -28,7 +28,8 @@ import {
   UIManager,
   Alert,
   TextInput,
-  Modal
+  Modal,
+  Dimensions
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -48,6 +49,9 @@ import { getSavedCategories } from '../../services/CategoryService';
 import { Unsubscribe } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Habilitar LayoutAnimation en Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -798,10 +802,17 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     
     return (
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>{displayTitle}</Text>
-        <View style={styles.sectionHeaderBadge}>
-          <Text style={styles.sectionHeaderBadgeText}>{section.data.length}</Text>
-        </View>
+        <LinearGradient
+          colors={[Colors.blue, Colors.blueDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.sectionHeaderGradient}
+        >
+          <Text style={styles.sectionHeaderTitle}>{displayTitle}</Text>
+          <View style={styles.sectionHeaderBadge}>
+            <Text style={styles.sectionHeaderBadgeText}>{section.data.length}</Text>
+          </View>
+        </LinearGradient>
       </View>
     );
   };
@@ -814,7 +825,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color="#0066FF" />
+        <ActivityIndicator size="small" color={Colors.blue} />
       </View>
     );
   };
@@ -842,11 +853,16 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Banner de conexión offline y estado de sincronización */}
-      <View style={styles.statusBanner}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        {/* Banner de conexión offline y estado de sincronización */}
+        <View style={styles.statusBanner}>
         {!isOnline ? (
           <View style={styles.offlineBanner}>
-            <Text style={styles.offlineText}>⚠️ Sin conexión a internet</Text>
+            <Ionicons name="warning" size={16} color={Colors.white} style={{ marginRight: 6 }} />
+            <Text style={styles.offlineText}>Sin conexión a internet</Text>
           </View>
         ) : (
           <View style={styles.syncBanner}>
@@ -861,17 +877,17 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header con estadísticas */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{stats.total}</Text>
+          <Text style={[styles.statNumber, { color: Colors.textPrimary }]}>{stats.total}</Text>
           <Text style={styles.statLabel}>Total</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: '#FF9500' }]}>
+          <Text style={[styles.statNumber, { color: Colors.blue }]}>
             {stats.pending}
           </Text>
           <Text style={styles.statLabel}>Pendientes</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: '#34C759' }]}>
+          <Text style={[styles.statNumber, { color: Colors.green }]}>
             {stats.completed}
           </Text>
           <Text style={styles.statLabel}>Completadas</Text>
@@ -881,43 +897,61 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       {/* Filtros */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
-          style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+          style={styles.filterButton}
           onPress={() => changeFilter('all')}
         >
-          <Text
-            style={[
-              styles.filterButtonText,
-              filter === 'all' && styles.filterButtonTextActive
-            ]}
-          >
-            Todas
-          </Text>
+          {filter === 'all' ? (
+            <LinearGradient
+              colors={[Colors.blue, Colors.blueDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.filterButtonGradient}
+            >
+              <Text style={styles.filterButtonTextActive}>Todas</Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.filterButtonInactive}>
+              <Text style={styles.filterButtonText}>Todas</Text>
+            </View>
+          )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterButton, filter === 'pending' && styles.filterButtonActive]}
+          style={styles.filterButton}
           onPress={() => changeFilter('pending')}
         >
-          <Text
-            style={[
-              styles.filterButtonText,
-              filter === 'pending' && styles.filterButtonTextActive
-            ]}
-          >
-            Pendientes
-          </Text>
+          {filter === 'pending' ? (
+            <LinearGradient
+              colors={[Colors.blue, Colors.blueDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.filterButtonGradient}
+            >
+              <Text style={styles.filterButtonTextActive}>Pendientes</Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.filterButtonInactive}>
+              <Text style={styles.filterButtonText}>Pendientes</Text>
+            </View>
+          )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterButton, filter === 'completed' && styles.filterButtonActive]}
+          style={styles.filterButton}
           onPress={() => changeFilter('completed')}
         >
-          <Text
-            style={[
-              styles.filterButtonText,
-              filter === 'completed' && styles.filterButtonTextActive
-            ]}
-          >
-            Completadas
-          </Text>
+          {filter === 'completed' ? (
+            <LinearGradient
+              colors={[Colors.green, Colors.greenDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.filterButtonGradient}
+            >
+              <Text style={styles.filterButtonTextActive}>Completadas</Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.filterButtonInactive}>
+              <Text style={styles.filterButtonText}>Completadas</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -986,31 +1020,46 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           ].map((option) => (
             <TouchableOpacity
               key={option.key}
-              style={[
-                styles.groupByButton,
-                groupBy === option.key && styles.groupByButtonActive
-              ]}
+              style={styles.groupByButton}
               onPress={() => {
                 configureLayoutAnimation();
                 setGroupBy(option.key as typeof groupBy);
               }}
             >
-              {option.icon && (
-                <Ionicons 
-                  name={option.icon as any} 
-                  size={14} 
-                  color={groupBy === option.key ? Colors.white : Colors.blue} 
-                  style={{ marginRight: Spacing.xs }}
-                />
+              {groupBy === option.key ? (
+                <LinearGradient
+                  colors={[Colors.blue, Colors.blueDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.groupByButtonGradient}
+                >
+                  {option.icon && (
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={14} 
+                      color={Colors.white} 
+                      style={{ marginRight: Spacing.xs }}
+                    />
+                  )}
+                  <Text style={styles.groupByButtonTextActive}>
+                    {option.label}
+                  </Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.groupByButtonInactive}>
+                  {option.icon && (
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={14} 
+                      color={Colors.blue} 
+                      style={{ marginRight: Spacing.xs }}
+                    />
+                  )}
+                  <Text style={styles.groupByButtonText}>
+                    {option.label}
+                  </Text>
+                </View>
               )}
-              <Text
-                style={[
-                  styles.groupByButtonText,
-                  groupBy === option.key && styles.groupByButtonTextActive
-                ]}
-              >
-                {option.label}
-              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -1022,8 +1071,15 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.calendarButton}
           onPress={() => navigation.navigate('Calendar')}
         >
-          <Ionicons name="calendar" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
-          <Text style={styles.calendarButtonText}>Calendario</Text>
+          <LinearGradient
+            colors={[Colors.blue, Colors.blueDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.calendarButtonGradient}
+          >
+            <Ionicons name="calendar" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+            <Text style={styles.calendarButtonText}>Calendario</Text>
+          </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
@@ -1043,7 +1099,14 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.clearFiltersButton}
             onPress={clearAdvancedFilters}
           >
-            <Text style={styles.clearFiltersButtonText}>Limpiar</Text>
+            <LinearGradient
+              colors={[Colors.orange, Colors.orangeDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.clearFiltersButtonGradient}
+            >
+              <Text style={styles.clearFiltersButtonText}>Limpiar</Text>
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
@@ -1051,7 +1114,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       {/* Lista de tareas */}
       {isLoading && !refreshing && displayedTasks.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0066FF" />
+          <ActivityIndicator size="large" color={Colors.blue} />
           <Text style={styles.loadingText}>Cargando tareas...</Text>
         </View>
       ) : groupBy === 'none' ? (
@@ -1105,7 +1168,14 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         onPress={navigateToCreateTask}
         disabled={!isOnline}
       >
-        <Ionicons name="add" size={32} color={Colors.white} />
+        <LinearGradient
+          colors={[Colors.orange, Colors.orangeDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={32} color={Colors.white} />
+        </LinearGradient>
       </TouchableOpacity>
 
       {/* Modal de Filtro Avanzado */}
@@ -1289,12 +1359,20 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.modalButtonPrimary}
                 onPress={() => setShowAdvancedFilter(false)}
               >
-                <Text style={styles.modalButtonPrimaryText}>Aplicar</Text>
+                <LinearGradient
+                  colors={[Colors.blue, Colors.blueDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalButtonPrimaryGradient}
+                >
+                  <Text style={styles.modalButtonPrimaryText}>Aplicar</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+      </LinearGradient>
 
       <CustomAlert
         visible={alertState.visible}
@@ -1314,19 +1392,23 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Colors.white
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   statusBanner: {
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.base
   },
   offlineBanner: {
-    backgroundColor: Colors.error,
+    backgroundColor: Colors.orange,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.base,
     borderRadius: BorderRadius.base,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
     ...Shadows.sm
   },
   offlineText: {
@@ -1340,15 +1422,19 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: Colors.white,
-    paddingVertical: Spacing.base,
-    paddingHorizontal: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    ...Shadows.sm
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginTop: Spacing.md,
+    marginBottom: Spacing.base,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.md,
+    gap: Spacing.sm
   },
   statBox: {
     flex: 1,
-    alignItems: 'center'
+    alignItems: 'center',
+    paddingVertical: Spacing.sm
   },
   statNumber: {
     fontSize: Typography.sizes['2xl'],
@@ -1363,19 +1449,33 @@ const styles = StyleSheet.create({
   filterContainer: {
     flexDirection: 'row',
     backgroundColor: Colors.white,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
     paddingVertical: Spacing.md,
+    marginHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
     gap: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border
+    ...Shadows.sm
   },
   filterButton: {
     flex: 1,
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden'
+  },
+  filterButtonGradient: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  filterButtonInactive: {
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.base,
     backgroundColor: Colors.backgroundTertiary,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   filterButtonActive: {
     backgroundColor: Colors.blue
@@ -1386,43 +1486,51 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium
   },
   filterButtonTextActive: {
-    color: Colors.white
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   categoryFilterContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB'
+    backgroundColor: Colors.white,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.sm
   },
   categoryFilterScroll: {
-    paddingHorizontal: 20,
-    gap: 8
+    paddingHorizontal: Spacing.base,
+    gap: Spacing.sm
   },
   categoryFilterButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F8F9FA',
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginRight: 8
+    borderColor: Colors.border,
+    marginRight: Spacing.sm,
+    ...Shadows.xs
   },
   categoryFilterButtonActive: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#0066FF'
+    backgroundColor: '#F0F7FF',
+    borderColor: Colors.blue,
+    borderWidth: 2
   },
   categoryFilterText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500'
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium
   },
   categoryFilterTextActive: {
-    color: '#0066FF',
-    fontWeight: '600'
+    color: Colors.blue,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 80
+    padding: Math.max(Spacing.base, SCREEN_WIDTH * 0.03),
+    paddingBottom: 100,
+    paddingTop: Spacing.sm
   },
   emptyState: {
     flex: 1,
@@ -1457,106 +1565,133 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    right: Spacing.lg,
+    right: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
     bottom: Spacing.lg,
     width: 56,
     height: 56,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.blue,
+    overflow: 'hidden',
+    ...Shadows.lg
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.lg
+    borderRadius: BorderRadius.full
   },
   advancedFilterButtonContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    backgroundColor: Colors.white,
+    paddingHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingVertical: Spacing.md,
+    marginHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
     alignItems: 'center',
-    gap: 8
+    gap: Spacing.sm,
+    ...Shadows.sm
   },
   calendarButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.blue,
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  calendarButtonGradient: {
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.base,
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   calendarButtonText: {
-    fontSize: 14,
+    fontSize: Typography.sizes.sm,
     color: Colors.white,
-    fontWeight: '600'
+    fontWeight: Typography.weights.semibold
   },
   groupByContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB'
+    backgroundColor: Colors.white,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.sm
   },
   groupByLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-    fontWeight: '500'
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+    fontWeight: Typography.weights.medium
   },
   groupByScroll: {
     gap: 8
   },
   groupByButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginRight: 8
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    marginRight: Spacing.sm,
+    ...Shadows.sm
   },
-  groupByButtonActive: {
-    backgroundColor: Colors.blue,
-    borderColor: Colors.blue
+  groupByButtonGradient: {
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.full
+  },
+  groupByButtonInactive: {
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.full
   },
   groupByButtonText: {
-    fontSize: 12,
+    fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
-    fontWeight: '500'
+    fontWeight: Typography.weights.medium
   },
   groupByButtonTextActive: {
     color: Colors.white,
-    fontWeight: '600'
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold
   },
   sectionHeader: {
+    overflow: 'hidden',
+    marginTop: 16,
+    marginBottom: 8,
+    borderRadius: BorderRadius.base
+  },
+  sectionHeaderGradient: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.blue + '15',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.blue
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.base
   },
   sectionHeaderTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.white,
     flex: 1
   },
   sectionHeaderBadge: {
-    backgroundColor: Colors.blue,
+    backgroundColor: Colors.white + '30',
     minWidth: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    marginLeft: 8
+    paddingHorizontal: Spacing.sm,
+    marginLeft: Spacing.sm
   },
   sectionHeaderBadgeText: {
     fontSize: 12,
@@ -1565,36 +1700,41 @@ const styles = StyleSheet.create({
   },
   advancedFilterButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: BorderRadius.base,
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.border,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center'
+    ...Shadows.sm
   },
   advancedFilterButtonActive: {
-    backgroundColor: Colors.blue + '15',
-    borderColor: Colors.blue
+    backgroundColor: '#F0F7FF',
+    borderColor: Colors.blue,
+    borderWidth: 2
   },
   advancedFilterButtonText: {
-    fontSize: 14,
+    fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
-    fontWeight: '500'
+    fontWeight: Typography.weights.medium,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.base,
+    textAlign: 'center'
   },
   clearFiltersButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.red,
-    alignItems: 'center'
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.sm
+  },
+  clearFiltersButtonGradient: {
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   clearFiltersButtonText: {
-    fontSize: 14,
+    fontSize: Typography.sizes.sm,
     color: Colors.white,
-    fontWeight: '600'
+    fontWeight: Typography.weights.semibold
   },
   modalOverlay: {
     flex: 1,
@@ -1675,16 +1815,16 @@ const styles = StyleSheet.create({
     borderWidth: 2
   },
   priorityFilterButtonHigh: {
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.orange,
     borderColor: '#EF4444'
   },
   priorityFilterButtonMedium: {
-    backgroundColor: '#FF9500',
-    borderColor: '#FF9500'
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue
   },
   priorityFilterButtonLow: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759'
+    backgroundColor: Colors.priorityLow,
+    borderColor: Colors.priorityLow
   },
   priorityFilterText: {
     fontSize: 14,
@@ -1708,16 +1848,16 @@ const styles = StyleSheet.create({
     marginRight: 8
   },
   assigneeFilterButtonActive: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#0066FF'
+    backgroundColor: Colors.blue + '15',
+    borderColor: Colors.blue
   },
   assigneeFilterText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     fontWeight: '500'
   },
   assigneeFilterTextActive: {
-    color: '#0066FF',
+    color: Colors.blue,
     fontWeight: '600'
   },
   dateRangeContainer: {
@@ -1754,15 +1894,20 @@ const styles = StyleSheet.create({
   },
   modalButtonPrimary: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: Colors.blue,
-    alignItems: 'center'
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  modalButtonPrimaryGradient: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   modalButtonPrimaryText: {
-    fontSize: 14,
+    fontSize: Typography.sizes.base,
     color: Colors.white,
-    fontWeight: '600'
+    fontWeight: Typography.weights.bold
   }
 });
 

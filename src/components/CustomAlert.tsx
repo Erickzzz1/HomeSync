@@ -2,7 +2,7 @@
  * CustomAlert - Componente de alerta personalizado
  * 
  * Reemplaza los Alert nativos con un diseño personalizado que incluye:
- * - Animación de paloma verde para mensajes de éxito
+ * - Animación de paloma azul para mensajes de éxito
  * - Botones de aceptar/cancelar para confirmaciones
  * - Animaciones suaves de entrada y salida
  */
@@ -18,6 +18,8 @@ import {
   Platform,
   Dimensions
 } from 'react-native';
+import { Colors } from '../constants/design';
+import { Ionicons } from '@expo/vector-icons';
 
 export type AlertType = 'success' | 'confirm' | 'error';
 
@@ -162,13 +164,13 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
               }
             ]}
           >
-            <Text style={styles.checkmark}>✓</Text>
+            <Ionicons name="checkmark" size={36} color="#FFFFFF" />
           </Animated.View>
         );
       case 'error':
         return (
           <View style={[styles.iconContainer, styles.errorIconContainer]}>
-            <Text style={styles.errorIcon}>✕</Text>
+            <Ionicons name="close" size={36} color="#FFFFFF" />
           </View>
         );
       default:
@@ -271,20 +273,10 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   successIconContainer: {
-    backgroundColor: '#34C759'
+    backgroundColor: Colors.blue
   },
   errorIconContainer: {
-    backgroundColor: '#EF4444'
-  },
-  checkmark: {
-    fontSize: 36,
-    color: '#FFFFFF',
-    fontWeight: 'bold'
-  },
-  errorIcon: {
-    fontSize: 36,
-    color: '#FFFFFF',
-    fontWeight: 'bold'
+    backgroundColor: Colors.orange
   },
   title: {
     fontSize: 20,
@@ -313,15 +305,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   successButton: {
-    backgroundColor: '#34C759'
+    backgroundColor: Colors.blue
   },
   successButtonText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: 'bold'
   },
   confirmButton: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   confirmButtonText: {
     color: '#FFFFFF',

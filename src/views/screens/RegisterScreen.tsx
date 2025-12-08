@@ -15,7 +15,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
+  Dimensions
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
@@ -24,6 +26,11 @@ import { setUser, setLoading } from '../../store/slices/authSlice';
 import AuthViewModel from '../../viewmodels/AuthViewModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type RegisterScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -172,24 +179,36 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
       >
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={navigateToLogin} style={styles.backButton}>
-              <Text style={styles.backButtonText}>← Volver</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Crear Cuenta</Text>
-            <Text style={styles.subtitle}>
-              Completa el formulario para registrarte
-            </Text>
-          </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={navigateToLogin} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={20} color={Colors.blue} style={{ marginRight: 4 }} />
+                <Text style={styles.backButtonText}>Volver</Text>
+              </TouchableOpacity>
+              <View style={styles.logoContainer}>
+                <Image 
+                  source={require('../../../assets/icon.png')} 
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.title}>Crear Cuenta</Text>
+              <Text style={styles.subtitle}>
+                Completa el formulario para registrarte
+              </Text>
+            </View>
 
-          {/* Formulario */}
-          <View style={styles.form}>
+            {/* Formulario */}
+            <View style={styles.form}>
             {/* Campo Nombre */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nombre Completo (Opcional)</Text>
@@ -294,11 +313,18 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               onPress={handleRegister}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Crear Cuenta</Text>
-              )}
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.registerButtonGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Crear Cuenta</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
 
             {/* Link a Login */}
@@ -320,6 +346,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      </LinearGradient>
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -338,114 +365,157 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF'
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   scrollContent: {
-    flexGrow: 1
+    flexGrow: 1,
+    paddingBottom: Spacing.xl
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 40
-  },
-  header: {
-    marginBottom: 32
-  },
-  backButton: {
-    marginBottom: 16
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#0066FF',
-    fontWeight: '600'
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280'
-  },
-  form: {
+    paddingHorizontal: Math.max(Spacing.xl, SCREEN_WIDTH * 0.05),
+    paddingVertical: Spacing['3xl'],
+    maxWidth: 500,
+    alignSelf: 'center',
     width: '100%'
   },
-  inputContainer: {
-    marginBottom: 20
+  header: {
+    alignItems: 'center',
+    marginBottom: Spacing['4xl']
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm
   },
-  input: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
+  backButtonText: {
+    fontSize: Typography.sizes.base,
+    color: Colors.blue,
+    fontWeight: Typography.weights.semibold
   },
-  inputError: {
-    borderColor: '#EF4444'
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4
-  },
-  helperText: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4
-  },
-  button: {
-    backgroundColor: '#0066FF',
-    borderRadius: 12,
-    paddingVertical: 16,
+  logoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8
+    marginBottom: Spacing.base,
+    ...Shadows.lg,
+    overflow: 'hidden',
+    padding: Spacing.sm
+  },
+  logoImage: {
+    width: '90%',
+    height: '90%'
+  },
+  title: {
+    fontSize: Typography.sizes['4xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.blue,
+    marginBottom: Spacing.sm,
+    letterSpacing: -0.5,
+    textAlign: 'center'
+  },
+  subtitle: {
+    fontSize: Typography.sizes.base,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
+    textAlign: 'center'
+  },
+  form: {
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    ...Shadows.md
+  },
+  inputContainer: {
+    marginBottom: Spacing.lg
+  },
+  label: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm
+  },
+  input: {
+    backgroundColor: '#FAFBFC',
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
+    fontSize: Typography.sizes.base,
+    borderWidth: 2,
+    borderColor: '#E0E7FF',
+    color: Colors.textPrimary,
+    ...Shadows.sm
+  },
+  inputError: {
+    borderColor: Colors.error
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs
+  },
+  helperText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs
+  },
+  button: {
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    marginTop: Spacing.sm,
+    ...Shadows.base
+  },
+  registerButtonGradient: {
+    paddingVertical: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   buttonDisabled: {
     opacity: 0.6
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   loginLinkContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24
+    marginTop: Spacing.xl,
+    flexWrap: 'wrap'
   },
   loginLinkText: {
-    color: '#6B7280',
-    fontSize: 14
+    color: Colors.textSecondary,
+    fontSize: Typography.sizes.sm
   },
   loginLink: {
-    color: '#0066FF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.blue,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   footer: {
-    marginTop: 32,
-    alignItems: 'center'
+    marginTop: Spacing['2xl'],
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base
   },
   footerText: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.xs
   }
 });
 

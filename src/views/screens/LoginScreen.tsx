@@ -22,7 +22,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -34,6 +35,10 @@ import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import ApiService from '../../services/ApiService';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Dimensions } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -167,22 +172,30 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
       >
-        <View style={styles.content}>
-          {/* Header con gradiente */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="home" size={48} color={Colors.white} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            {/* Header con gradiente */}
+            <View style={styles.header}>
+              <View style={styles.logoContainer}>
+                <Image 
+                  source={require('../../../assets/icon.png')} 
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.title}>HomeSync</Text>
+              <Text style={styles.subtitle}>Asistente Digital del Hogar</Text>
             </View>
-            <Text style={styles.title}>HomeSync</Text>
-            <Text style={styles.subtitle}>Asistente Digital del Hogar</Text>
-          </View>
 
-          {/* Formulario */}
-          <View style={styles.form}>
+            {/* Formulario */}
+            <View style={styles.form}>
             {/* Campo Email */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Correo Electrónico</Text>
@@ -229,15 +242,22 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Botón de Login */}
             <TouchableOpacity
-              style={[styles.button, styles.loginButton, isLoading && styles.buttonDisabled]}
+              style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Iniciar Sesión</Text>
-              )}
+              <LinearGradient
+                colors={[Colors.blue, Colors.blueDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginButtonGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Iniciar Sesión</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
 
             {/* Separador */}
@@ -253,7 +273,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               onPress={navigateToRegister}
               disabled={isLoading}
             >
-              <Text style={styles.registerButtonText}>Crear Cuenta Nueva</Text>
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.registerButtonGradient}
+              >
+                <Text style={styles.registerButtonText}>Crear Cuenta Nueva</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
@@ -263,8 +290,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               Al continuar, aceptas nuestros términos y condiciones
             </Text>
           </View>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </LinearGradient>
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -283,36 +311,47 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Colors.background
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   scrollContent: {
     flexGrow: 1
   },
   content: {
     flex: 1,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Math.max(Spacing.xl, SCREEN_WIDTH * 0.05),
     justifyContent: 'center',
-    paddingVertical: Spacing['3xl']
+    paddingVertical: Spacing['3xl'],
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%'
   },
   header: {
     alignItems: 'center',
     marginBottom: Spacing['4xl']
   },
   logoContainer: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.blue,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.base,
-    ...Shadows.md
+    ...Shadows.lg,
+    overflow: 'hidden',
+    padding: Spacing.sm
+  },
+  logoImage: {
+    width: '90%',
+    height: '90%'
   },
   title: {
     fontSize: Typography.sizes['4xl'],
     fontWeight: Typography.weights.bold,
-    color: Colors.textPrimary,
+    color: Colors.blue,
     marginBottom: Spacing.sm,
     letterSpacing: -0.5
   },
@@ -322,7 +361,11 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium
   },
   form: {
-    width: '100%'
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    ...Shadows.md
   },
   inputContainer: {
     marginBottom: Spacing.lg
@@ -334,13 +377,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm
   },
   input: {
-    backgroundColor: Colors.backgroundSecondary,
+    backgroundColor: '#FAFBFC',
     borderRadius: BorderRadius.base,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md + 2,
     fontSize: Typography.sizes.base,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: '#E0E7FF',
     color: Colors.textPrimary,
     ...Shadows.sm
   },
@@ -355,14 +398,15 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: BorderRadius.base,
-    paddingVertical: Spacing.base,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     marginTop: Spacing.sm,
     ...Shadows.base
   },
-  loginButton: {
-    backgroundColor: Colors.blue
+  loginButtonGradient: {
+    paddingVertical: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   buttonDisabled: {
     opacity: 0.6
@@ -380,7 +424,7 @@ const styles = StyleSheet.create({
   separatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.border
+    backgroundColor: '#E0E7FF'
   },
   separatorText: {
     marginHorizontal: Spacing.base,
@@ -389,12 +433,16 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium
   },
   registerButton: {
-    backgroundColor: Colors.white,
-    borderWidth: 2,
-    borderColor: Colors.blue
+    overflow: 'hidden'
+  },
+  registerButtonGradient: {
+    paddingVertical: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   registerButtonText: {
-    color: Colors.blue,
+    color: Colors.white,
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold
   },

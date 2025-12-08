@@ -15,7 +15,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
@@ -23,7 +24,12 @@ import FamilyRepository from '../../repositories/FamilyRepository';
 import { FamilyMember } from '../../repositories/interfaces/IFamilyRepository';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 import { useAppSelector } from '../../store/hooks';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Clipboard - usar API nativa según plataforma
 const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
@@ -233,16 +239,30 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Botón para ir a grupos familiares */}
         <TouchableOpacity
           style={styles.groupsButton}
           onPress={() => navigation.navigate('FamilyGroups')}
         >
-          <Text style={styles.groupsButtonText}>👨‍👩‍👧‍👦 Mis Grupos Familiares</Text>
-          <Text style={styles.groupsButtonSubtext}>
-            Crea y gestiona grupos familiares con nombres
-          </Text>
+          <LinearGradient
+            colors={[Colors.orange, Colors.orangeDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.groupsButtonGradient}
+          >
+            <View style={styles.groupsButtonHeader}>
+              <Ionicons name="people" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.groupsButtonText}>Mis Grupos Familiares</Text>
+            </View>
+            <Text style={styles.groupsButtonSubtext}>
+              Crea y gestiona grupos familiares con nombres
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Sección de Mi ShareCode */}
@@ -253,7 +273,7 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           
           {isLoadingMembers ? (
-            <ActivityIndicator size="small" color="#0066FF" style={styles.loader} />
+            <ActivityIndicator size="small" color={Colors.blue} style={styles.loader} />
           ) : (
             <View style={styles.shareCodeContainer}>
               <Text style={styles.shareCode}>{shareCode || 'Cargando...'}</Text>
@@ -262,7 +282,15 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={copyShareCode}
                 disabled={!shareCode}
               >
-                <Text style={styles.copyButtonText}>📋 Copiar</Text>
+                <LinearGradient
+                  colors={[Colors.blue, Colors.blueDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.copyButtonGradient}
+                >
+                  <Ionicons name="copy" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.copyButtonText}>Copiar</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
@@ -295,11 +323,18 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
               onPress={handleAddMember}
               disabled={isLoading || newShareCode.length !== 6}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.addButtonText}>Agregar</Text>
-              )}
+              <LinearGradient
+                colors={[Colors.blue, Colors.blueDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addButtonGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.addButtonText}>Agregar</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -309,7 +344,7 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Mi Familia ({familyMembers.length})</Text>
           
           {isLoadingMembers ? (
-            <ActivityIndicator size="small" color="#0066FF" style={styles.loader} />
+            <ActivityIndicator size="small" color={Colors.blue} style={styles.loader} />
           ) : familyMembers.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
@@ -337,11 +372,17 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
                           styles.roleBadge,
                           member.role === 'admin' && styles.roleBadgeAdmin
                         ]}>
+                          <Ionicons 
+                            name={member.role === 'admin' ? 'star' : 'person'} 
+                            size={12} 
+                            color={member.role === 'admin' ? '#8B6914' : '#6B7280'} 
+                            style={{ marginRight: 4 }} 
+                          />
                           <Text style={[
                             styles.roleBadgeText,
                             member.role === 'admin' && styles.roleBadgeTextAdmin
                           ]}>
-                            {member.role === 'admin' ? '👑 Admin' : '👤 Miembro'}
+                            {member.role === 'admin' ? 'Admin' : 'Miembro'}
                           </Text>
                         </View>
                       </View>
@@ -403,6 +444,7 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
       </ScrollView>
+      </LinearGradient>
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -421,56 +463,61 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA'
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   scrollContent: {
-    padding: 20
+    padding: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingBottom: Spacing.xl,
+    maxWidth: 700,
+    alignSelf: 'center',
+    width: '100%'
   },
   groupsButton: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    marginBottom: Spacing.lg,
+    ...Shadows.md
+  },
+  groupsButtonGradient: {
+    padding: Spacing.lg,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    borderRadius: BorderRadius.base
+  },
+  groupsButtonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4
   },
   groupsButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4
+    color: Colors.white,
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold
   },
   groupsButtonSubtext: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 12
+    fontSize: Typography.sizes.xs
   },
   section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    ...Shadows.md
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
+    fontSize: Typography.sizes['2xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm
   },
   sectionDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 20
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.base,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm
   },
   loader: {
     marginVertical: 20
@@ -484,26 +531,33 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0066FF',
+    color: Colors.blue,
     letterSpacing: 4,
     textAlign: 'center',
     backgroundColor: '#F0F7FF',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#0066FF',
+    borderColor: Colors.blue,
     borderStyle: 'dashed'
   },
   copyButton: {
-    backgroundColor: '#0066FF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    ...Shadows.base
+  },
+  copyButtonGradient: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   copyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   addMemberContainer: {
     flexDirection: 'row',
@@ -511,31 +565,36 @@ const styles = StyleSheet.create({
   },
   shareCodeInput: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 18,
-    fontWeight: 'bold',
+    backgroundColor: '#FAFBFC',
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
     letterSpacing: 2,
     textAlign: 'center',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
+    borderColor: '#E0E7FF',
+    color: Colors.textPrimary,
+    ...Shadows.sm
   },
   addButton: {
-    backgroundColor: '#0066FF',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    minWidth: 100,
+    ...Shadows.base
+  },
+  addButtonGradient: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md + 2,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 100
+    borderRadius: BorderRadius.base
   },
   addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   buttonDisabled: {
     opacity: 0.6
@@ -586,14 +645,16 @@ const styles = StyleSheet.create({
   currentUserBadge: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0066FF'
+    color: Colors.blue
   },
   roleBadge: {
     backgroundColor: '#E5E7EB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    marginLeft: 8
+    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   roleBadgeAdmin: {
     backgroundColor: '#FFD700'
@@ -632,8 +693,8 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   roleButtonActive: {
-    backgroundColor: '#0066FF',
-    borderColor: '#0066FF'
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue
   },
   roleButtonText: {
     fontSize: 12,
@@ -654,7 +715,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
   },
   removeButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.orange,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8

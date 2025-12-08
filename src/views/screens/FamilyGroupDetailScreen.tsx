@@ -15,7 +15,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
 import { StackNavigationProp, RouteProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
@@ -23,7 +24,12 @@ import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
 import { FamilyGroup, FamilyGroupMember } from '../../repositories/interfaces/IFamilyGroupRepository';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 import { useAppSelector } from '../../store/hooks';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Clipboard - usar API nativa según plataforma
 const copyToClipboard = async (text: string): Promise<boolean> => {
@@ -294,7 +300,7 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#0066FF" />
+            <ActivityIndicator size="large" color={Colors.blue} />
           <Text style={styles.loaderText}>Cargando grupo...</Text>
         </View>
       </SafeAreaView>
@@ -311,7 +317,11 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Información del grupo */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{group.name}</Text>
@@ -325,7 +335,15 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={styles.copyButton}
                 onPress={copyShareCode}
               >
-                <Text style={styles.copyButtonText}>📋 Copiar</Text>
+                <LinearGradient
+                  colors={[Colors.blue, Colors.blueDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.copyButtonGradient}
+                >
+                  <Ionicons name="copy" size={14} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                  <Text style={styles.copyButtonText}>Copiar</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
             <Text style={styles.shareCodeDescription}>
@@ -339,7 +357,15 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             onPress={handleLeaveGroup}
             disabled={isLoading}
           >
-            <Text style={styles.leaveGroupButtonText}>🚪 Salir del Grupo</Text>
+            <LinearGradient
+              colors={[Colors.blue, Colors.blueDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.leaveGroupButtonGradient}
+            >
+              <Ionicons name="log-out" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+              <Text style={styles.leaveGroupButtonText}>Salir del Grupo</Text>
+            </LinearGradient>
           </TouchableOpacity>
 
           {/* Botón eliminar grupo (solo para creador o admin) */}
@@ -352,7 +378,15 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               }}
               disabled={isLoading}
             >
-              <Text style={styles.deleteGroupButtonText}>🗑️ Eliminar Grupo</Text>
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.deleteGroupButtonGradient}
+              >
+                <Ionicons name="trash" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                <Text style={styles.deleteGroupButtonText}>Eliminar Grupo</Text>
+              </LinearGradient>
             </TouchableOpacity>
           )}
         </View>
@@ -383,11 +417,18 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={handleAddMember}
               disabled={isAdding || newShareCode.length !== 6}
             >
-              {isAdding ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.addButtonText}>Agregar</Text>
-              )}
+              <LinearGradient
+                colors={[Colors.blue, Colors.blueDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addButtonGradient}
+              >
+                {isAdding ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text style={styles.addButtonText}>Agregar</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -423,11 +464,17 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                           styles.roleBadge,
                           member.role === 'admin' && styles.roleBadgeAdmin
                         ]}>
+                          <Ionicons 
+                            name={member.role === 'admin' ? 'star' : 'person'} 
+                            size={12} 
+                            color={member.role === 'admin' ? '#8B6914' : '#6B7280'} 
+                            style={{ marginRight: 4 }} 
+                          />
                           <Text style={[
                             styles.roleBadgeText,
                             member.role === 'admin' && styles.roleBadgeTextAdmin
                           ]}>
-                            {member.role === 'admin' ? '👑 Admin' : '👤 Miembro'}
+                            {member.role === 'admin' ? 'Admin' : 'Miembro'}
                           </Text>
                         </View>
                       </View>
@@ -482,7 +529,14 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         }}
                         disabled={isLoading}
                       >
-                        <Text style={styles.removeButtonText}>Eliminar</Text>
+                        <LinearGradient
+                          colors={[Colors.orange, Colors.orangeDark]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.removeButtonGradient}
+                        >
+                          <Text style={styles.removeButtonText}>Eliminar</Text>
+                        </LinearGradient>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -491,7 +545,8 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </LinearGradient>
 
       <CustomAlert
         visible={alertState.visible}
@@ -511,11 +566,17 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA'
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   scrollContent: {
-    padding: 20
+    padding: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingBottom: Spacing.xl,
+    maxWidth: 700,
+    alignSelf: 'center',
+    width: '100%'
   },
   loaderContainer: {
     flex: 1,
@@ -528,27 +589,23 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
   section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    ...Shadows.md
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
+    fontSize: Typography.sizes['2xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm
   },
   sectionDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 20
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.base,
+    lineHeight: Typography.lineHeights.normal * Typography.sizes.sm
   },
   shareCodeContainer: {
     marginTop: 12
@@ -566,28 +623,36 @@ const styles = StyleSheet.create({
   },
   shareCode: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0066FF',
+    fontSize: Typography.sizes['2xl'],
+    fontWeight: Typography.weights.bold,
+    color: Colors.blue,
     letterSpacing: 4,
     textAlign: 'center',
     backgroundColor: '#F0F7FF',
-    padding: 16,
-    borderRadius: 12,
+    padding: Spacing.base + 4,
+    borderRadius: BorderRadius.base,
     borderWidth: 2,
-    borderColor: '#0066FF',
-    borderStyle: 'dashed'
+    borderColor: Colors.blue,
+    borderStyle: 'dashed',
+    ...Shadows.sm
   },
   copyButton: {
-    backgroundColor: '#0066FF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    ...Shadows.base
+  },
+  copyButtonGradient: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   copyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   shareCodeDescription: {
     fontSize: 12,
@@ -595,60 +660,80 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   leaveGroupButton: {
-    marginTop: 16,
-    backgroundColor: '#FF9500',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center'
+    marginTop: Spacing.base,
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  leaveGroupButtonGradient: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   leaveGroupButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   deleteGroupButton: {
-    marginTop: 12,
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center'
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  deleteGroupButtonGradient: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   deleteGroupButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   addMemberContainer: {
     flexDirection: 'row',
-    gap: 12
+    gap: Spacing.sm,
+    alignItems: 'center'
   },
   shareCodeInput: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 18,
-    fontWeight: 'bold',
+    backgroundColor: '#FAFBFC',
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.md + 2,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold,
     letterSpacing: 2,
     textAlign: 'center',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
+    borderColor: '#E0E7FF',
+    color: Colors.textPrimary,
+    ...Shadows.sm,
+    minWidth: 0
   },
   addButton: {
-    backgroundColor: '#0066FF',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    ...Shadows.base,
+    flexShrink: 0
+  },
+  addButtonGradient: {
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 100
+    borderRadius: BorderRadius.base,
+    minWidth: 80
   },
   addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   buttonDisabled: {
     opacity: 0.6
@@ -669,11 +754,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB'
+    borderColor: Colors.border,
+    ...Shadows.sm
   },
   memberInfo: {
     flex: 1
@@ -685,22 +772,24 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   memberName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
     flex: 1
   },
   currentUserBadge: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0066FF'
+    color: Colors.blue
   },
   roleBadge: {
     backgroundColor: '#E5E7EB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    marginLeft: 8
+    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   roleBadgeAdmin: {
     backgroundColor: '#FFD700'
@@ -744,8 +833,9 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   roleButtonActive: {
-    backgroundColor: '#0066FF',
-    borderColor: '#0066FF'
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue,
+    ...Shadows.sm
   },
   roleButtonText: {
     fontSize: 12,
@@ -756,15 +846,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF'
   },
   removeButton: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    ...Shadows.sm
+  },
+  removeButtonGradient: {
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm + 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: BorderRadius.base
   },
   removeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   }
 });
 

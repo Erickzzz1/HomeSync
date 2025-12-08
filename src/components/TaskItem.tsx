@@ -105,7 +105,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {task.isCompleted && <Text style={styles.checkmark}>✓</Text>}
+            {task.isCompleted && <Ionicons name="checkmark" size={16} color={Colors.white} />}
           </TouchableOpacity>
           <View style={styles.taskInfo}>
             <Text
@@ -135,7 +135,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="trash" size={20} color={Colors.red} />
+            <Ionicons name="trash" size={20} color={Colors.orange} />
           </TouchableOpacity>
         )}
       </View>
@@ -157,7 +157,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
           </Text>
         </View>
         <View style={styles.dueDateContainer}>
-          <Ionicons name="calendar" size={14} color={new Date(task.dueDate) < new Date() && !task.isCompleted ? Colors.red : Colors.blue} />
+          <Ionicons name="calendar" size={14} color={new Date(task.dueDate) < new Date() && !task.isCompleted ? Colors.orange : Colors.blue} />
           <Text style={[
             styles.dueDateText,
             new Date(task.dueDate) < new Date() && !task.isCompleted && styles.dueDateOverdue
@@ -221,11 +221,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.blue,
     borderColor: Colors.blue
   },
-  checkmark: {
-    color: Colors.textInverse,
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.bold
-  },
   taskInfo: {
     flex: 1
   },
@@ -286,7 +281,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary
   },
   dueDateOverdue: {
-    color: Colors.red,
+    color: Colors.orange,
     fontWeight: Typography.weights.semibold
   },
   categoriesContainer: {

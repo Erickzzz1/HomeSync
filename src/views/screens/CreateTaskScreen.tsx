@@ -16,7 +16,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert
+  Alert,
+  Dimensions
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
@@ -34,6 +35,9 @@ import CategorySelector from '../../components/CategorySelector';
 import { getSavedCategories, saveCategories } from '../../services/CategoryService';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -450,14 +454,18 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
         >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Título */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Título *</Text>
@@ -510,7 +518,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Asignado a *</Text>
             {isLoadingFamily ? (
-              <ActivityIndicator size="small" color="#0066FF" style={styles.loader} />
+              <ActivityIndicator size="small" color={Colors.blue} style={styles.loader} />
             ) : familyMembers.length === 0 ? (
               <View style={styles.emptyFamilyContainer}>
                 <Text style={styles.emptyFamilyText}>
@@ -520,7 +528,14 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                   style={styles.addFamilyButton}
                   onPress={() => navigation.navigate('Family')}
                 >
-                  <Text style={styles.addFamilyButtonText}>Ir a Mi Familia</Text>
+                  <LinearGradient
+                    colors={[Colors.blue, Colors.blueDark]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.addFamilyButtonGradient}
+                  >
+                    <Text style={styles.addFamilyButtonText}>Ir a Mi Familia</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -840,21 +855,28 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               style={[
                 styles.button,
-                styles.createButton,
                 isLoading && styles.buttonDisabled
               ]}
               onPress={handleCreateTask}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.createButtonText}>Crear Tarea</Text>
-              )}
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.createButtonGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.createButtonText}>Crear Tarea</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      </LinearGradient>
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -873,14 +895,20 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Colors.white
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
   },
   keyboardView: {
     flex: 1
   },
   scrollContent: {
-    padding: Spacing.lg
+    padding: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingBottom: Spacing.xl,
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%'
   },
   inputContainer: {
     marginBottom: Spacing.lg
@@ -892,13 +920,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm
   },
   input: {
-    backgroundColor: Colors.white,
+    backgroundColor: '#FAFBFC',
     borderRadius: BorderRadius.base,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md + 2,
     fontSize: Typography.sizes.base,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: '#E0E7FF',
     color: Colors.textPrimary,
     ...Shadows.sm
   },
@@ -911,7 +939,7 @@ const styles = StyleSheet.create({
     paddingTop: 14
   },
   errorText: {
-    color: Colors.red,
+    color: Colors.orange,
     fontSize: Typography.sizes.xs,
     marginTop: Spacing.xs,
     marginLeft: Spacing.xs
@@ -923,16 +951,16 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs
   },
   datePickerButton: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    backgroundColor: '#FAFBFC',
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: '#E0E7FF',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    ...Shadows.sm
   },
   datePickerButtonText: {
     fontSize: 16,
@@ -982,10 +1010,9 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
   },
   cancelButton: {
     backgroundColor: Colors.white,
@@ -994,11 +1021,16 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    paddingVertical: Spacing.base,
+    textAlign: 'center'
   },
-  createButton: {
-    backgroundColor: Colors.blue
+  createButtonGradient: {
+    paddingVertical: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   createButtonText: {
     color: Colors.white,
@@ -1027,27 +1059,33 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   addFamilyButton: {
-    backgroundColor: Colors.blue,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    ...Shadows.base
+  },
+  addFamilyButtonGradient: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   addFamilyButtonText: {
     color: Colors.white,
-    fontSize: 14,
-    fontWeight: '600'
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   dropdown: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    backgroundColor: '#FAFBFC',
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md + 2,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: '#E0E7FF',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    ...Shadows.sm
   },
   dropdownText: {
     fontSize: 16,

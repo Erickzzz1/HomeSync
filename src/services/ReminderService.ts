@@ -118,7 +118,7 @@ export async function scheduleTaskReminder(task: TaskModel): Promise<boolean> {
 
     // Crear contenido de la notificación
     const notificationContent = {
-      title: `📋 Recordatorio: ${task.title}`,
+      title: `Recordatorio: ${task.title}`,
       body: task.description || `Tarea vence el ${new Date(task.dueDate).toLocaleDateString('es-ES')}`,
       data: {
         taskId: task.id,

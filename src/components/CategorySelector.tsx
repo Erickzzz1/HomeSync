@@ -15,6 +15,8 @@ import {
   Platform
 } from 'react-native';
 import { getSavedCategories, saveCategory, saveCategories } from '../services/CategoryService';
+import { Colors } from '../constants/design';
+import { Ionicons } from '@expo/vector-icons';
 
 interface CategorySelectorProps {
   selectedCategories: string[];
@@ -186,7 +188,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             onPress={handleTextSubmit}
             disabled={!newCategory.trim() || selectedCategories.length >= maxCategories}
           >
-            <Text style={styles.addButtonText}>✓</Text>
+            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.cancelButton}
@@ -195,7 +197,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
               setShowInput(false);
             }}
           >
-            <Text style={styles.cancelButtonText}>✕</Text>
+            <Ionicons name="close" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -250,7 +252,7 @@ const styles = StyleSheet.create({
   categoryTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0066FF',
+    backgroundColor: Colors.blue,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -296,27 +298,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#34C759',
+    backgroundColor: Colors.blue,
     alignItems: 'center',
     justifyContent: 'center'
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold'
   },
   cancelButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.orange,
     alignItems: 'center',
     justifyContent: 'center'
-  },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold'
   },
   addCategoryButton: {
     backgroundColor: '#F8F9FA',
@@ -350,10 +342,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#0066FF'
+    borderColor: Colors.blue
   },
   suggestionText: {
-    color: '#0066FF',
+    color: Colors.blue,
     fontSize: 12,
     fontWeight: '500'
   }

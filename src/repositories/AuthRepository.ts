@@ -40,6 +40,7 @@ interface ApiAuthResponse {
 class AuthRepository implements IAuthRepository {
   private currentUser: User | null = null;
   private authStateListeners: Array<(user: User | null) => void> = [];
+  private isCheckingAuth: boolean = false;
 
   constructor() {
     // Verificar si hay un token guardado al inicializar
@@ -85,6 +86,12 @@ class AuthRepository implements IAuthRepository {
    * Verifica el estado de autenticación actual
    */
   private async checkAuthState() {
+    // Evitar llamadas múltiples simultáneas
+    if (this.isCheckingAuth) {
+      return;
+    }
+
+    this.isCheckingAuth = true;
     try {
       const token = await ApiService.getToken();
       if (token) {
@@ -92,11 +99,18 @@ class AuthRepository implements IAuthRepository {
         if (response.success && response.user) {
           const user = this.apiUserToFirebaseUser(response.user);
           this.notifyAuthStateChange(user);
+          this.isCheckingAuth = false;
           return;
         }
       }
-    } catch (error) {
-      // console.log('No hay sesión activa');
+    } catch (error: any) {
+      // Silenciar errores 401 (no autenticado) - es un estado esperado
+      if (error?.status !== 401 && error?.errorCode !== 'UNAUTHORIZED') {
+        // Solo loguear errores inesperados
+        console.error('Error al verificar estado de autenticación:', error);
+      }
+    } finally {
+      this.isCheckingAuth = false;
     }
     this.notifyAuthStateChange(null);
   }

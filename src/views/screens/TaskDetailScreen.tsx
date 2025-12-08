@@ -14,7 +14,9 @@ import {
   SafeAreaView,
   ScrollView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Dimensions,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -23,15 +25,21 @@ import { updateTask as updateTaskRedux, setLoading } from '../../store/slices/ta
 import TaskRepository from '../../repositories/TaskRepository';
 import FamilyRepository from '../../repositories/FamilyRepository';
 import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
+import { FamilyMember } from '../../repositories/interfaces/IFamilyRepository';
 import TaskViewModel from '../../viewmodels/TaskViewModel';
 import { TaskModel, TaskPriority } from '../../models/TaskModel';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { syncReminders } from '../../services/ReminderService';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
 import CategorySelector from '../../components/CategorySelector';
 import { getSavedCategories, saveCategories } from '../../services/CategoryService';
 import ConflictResolutionModal from '../../components/ConflictResolutionModal';
 import { ConflictInfo, createConflictInfo, ConflictResolution } from '../../services/ConflictResolutionService';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Import condicional del DateTimePicker (solo para móvil)
 let DateTimePicker: any = null;
@@ -63,6 +71,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [assignedTo, setAssignedTo] = useState(task.assignedTo);
+  const [assignedToName, setAssignedToName] = useState<string>('');
   const [dueDate, setDueDate] = useState(task.dueDate);
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     task.dueDate ? new Date(task.dueDate) : null
@@ -80,6 +89,9 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   }>({});
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const [showConflictModal, setShowConflictModal] = useState(false);
+  const [familyMembers, setFamilyMembers] = useState<Array<{ uid: string; name: string }>>([]);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [isLoadingFamily, setIsLoadingFamily] = useState(true);
 
   const taskRepository = new TaskRepository();
   const familyGroupRepository = new FamilyGroupRepository();
@@ -144,6 +156,14 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setUserNameMap(nameMap);
   }, [user?.uid, user?.displayName, user?.email]);
 
+  // Establecer el nombre del asignado cuando se carga el mapa de nombres
+  useEffect(() => {
+    if (task.assignedTo && userNameMap.size > 0) {
+      const assignedName = getAssignedUserName(task.assignedTo);
+      setAssignedToName(assignedName);
+    }
+  }, [userNameMap, task.assignedTo]);
+
   /**
    * Obtiene el nombre del usuario asignado a partir de su UID
    */
@@ -179,8 +199,70 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       loadUserNameMap();
       loadAvailableCategories();
       loadSavedCategories();
+      loadFamilyMembers();
     }
   }, [user?.uid, loadUserNameMap]);
+
+  /**
+   * Carga los miembros de la familia y grupos para el selector
+   */
+  const loadFamilyMembers = async () => {
+    if (!user?.uid) return;
+    
+    setIsLoadingFamily(true);
+    const members: Array<{ uid: string; name: string }> = [];
+    
+    try {
+      // Agregar el usuario actual (si no está ya asignado a otro usuario)
+      members.push({
+        uid: user.uid,
+        name: user.displayName || user.email || 'Yo mismo'
+      });
+      
+      // Cargar familiares
+      const familyRepository = new FamilyRepository();
+      const familyResult = await familyRepository.getFamilyMembers();
+      if (familyResult.success && familyResult.familyMembers) {
+        familyResult.familyMembers.forEach((member) => {
+          members.push({
+            uid: member.uid,
+            name: member.displayName || member.email || 'Sin nombre'
+          });
+        });
+      }
+      
+      // Cargar miembros de grupos familiares
+      const groupsResult = await familyGroupRepository.getMyFamilyGroups();
+      if (groupsResult.success && groupsResult.groups) {
+        const groupPromises = groupsResult.groups.map(async (group) => {
+          const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
+          if (groupDetailResult.success && groupDetailResult.group) {
+            return groupDetailResult.group.members.map(member => ({
+              uid: member.uid,
+              name: member.displayName || member.email || 'Sin nombre'
+            }));
+          }
+          return [];
+        });
+        
+        const allGroupMembersArrays = await Promise.all(groupPromises);
+        const allGroupMembers = allGroupMembersArrays.flat();
+        
+        // Agregar miembros de grupos que no estén ya en la lista
+        allGroupMembers.forEach((member) => {
+          if (member.uid && !members.find(m => m.uid === member.uid)) {
+            members.push(member);
+          }
+        });
+      }
+      
+      setFamilyMembers(members);
+    } catch (error) {
+      console.error('Error al cargar miembros para selector:', error);
+    } finally {
+      setIsLoadingFamily(false);
+    }
+  };
 
   /**
    * Carga las categorías guardadas localmente
@@ -324,6 +406,8 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setTitle(task.title);
     setDescription(task.description);
     setAssignedTo(task.assignedTo);
+    const currentAssignedName = getAssignedUserName(task.assignedTo);
+    setAssignedToName(currentAssignedName);
     setDueDate(task.dueDate);
     setSelectedDate(task.dueDate ? new Date(task.dueDate) : null);
     setPriority(task.priority);
@@ -331,6 +415,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setValidationErrors({});
     setIsEditing(false);
     setShowDatePicker(false);
+    setShowMemberDropdown(false);
   };
 
   /**
@@ -437,11 +522,11 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const getPriorityColor = (p: TaskPriority): string => {
     switch (p) {
       case 'Alta':
-        return '#EF4444';
+        return Colors.priorityHigh;
       case 'Media':
-        return '#FF9500';
+        return Colors.blue;
       case 'Baja':
-        return '#34C759';
+        return Colors.priorityLow;
       default:
         return '#6B7280';
     }
@@ -449,12 +534,32 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Estado */}
-        <View style={[styles.statusBadge, task.isCompleted && styles.statusBadgeCompleted]}>
-          <Text style={styles.statusText}>
-            {task.isCompleted ? '✓ Completada' : '⏳ Pendiente'}
-          </Text>
+        <View style={styles.statusBadge}>
+          <LinearGradient
+            colors={task.isCompleted ? [Colors.green, Colors.greenDark] : [Colors.blue, Colors.blueDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.statusBadgeGradient}
+          >
+            <Ionicons 
+              name={task.isCompleted ? 'checkmark-circle' : 'time'} 
+              size={20} 
+              color={Colors.white} 
+              style={{ marginRight: 8 }} 
+            />
+            <Text style={styles.statusText}>
+              {task.isCompleted ? 'Completada' : 'Pendiente'}
+            </Text>
+          </LinearGradient>
         </View>
 
         {/* Título */}
@@ -525,22 +630,70 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.sectionLabel}>Asignado a</Text>
           {isEditing ? (
             <>
-              <TextInput
-                style={[
-                  styles.input,
-                  validationErrors.assignedTo ? styles.inputError : null
-                ]}
-                value={assignedTo}
-                onChangeText={(text) => {
-                  setAssignedTo(text);
-                  // Limpiar error cuando el usuario empiece a escribir
-                  if (validationErrors.assignedTo) {
-                    setValidationErrors({ ...validationErrors, assignedTo: undefined });
-                  }
-                }}
-                editable={!isSaving}
-                placeholder="Nombre del miembro asignado"
-              />
+              {isLoadingFamily ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={Colors.blue} />
+                  <Text style={styles.loadingText}>Cargando miembros...</Text>
+                </View>
+              ) : (
+                <View style={[styles.dropdownContainer, showMemberDropdown && { marginBottom: 200 }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdown,
+                      validationErrors.assignedTo ? styles.inputError : null
+                    ]}
+                    onPress={() => setShowMemberDropdown(!showMemberDropdown)}
+                    disabled={isSaving}
+                  >
+                    <Text style={[styles.dropdownText, !assignedToName && styles.placeholder]} numberOfLines={1}>
+                      {assignedToName || 'Selecciona un miembro'}
+                    </Text>
+                    <Ionicons 
+                      name={showMemberDropdown ? 'chevron-up' : 'chevron-down'} 
+                      size={20} 
+                      color={Colors.textSecondary} 
+                    />
+                  </TouchableOpacity>
+                  {showMemberDropdown && (
+                    <ScrollView 
+                      style={styles.dropdownList}
+                      nestedScrollEnabled={true}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {familyMembers.map((member) => (
+                        <TouchableOpacity
+                          key={member.uid}
+                          style={[
+                            styles.dropdownItem,
+                            assignedTo === member.uid && styles.dropdownItemSelected
+                          ]}
+                          onPress={() => {
+                            setAssignedTo(member.uid);
+                            setAssignedToName(member.name);
+                            setShowMemberDropdown(false);
+                            if (validationErrors.assignedTo) {
+                              setValidationErrors({ ...validationErrors, assignedTo: undefined });
+                            }
+                          }}
+                        >
+                          <Ionicons 
+                            name="person" 
+                            size={16} 
+                            color={assignedTo === member.uid ? Colors.white : Colors.blue} 
+                            style={{ marginRight: Spacing.xs }} 
+                          />
+                          <Text style={[
+                            styles.dropdownItemText,
+                            assignedTo === member.uid && styles.dropdownItemTextSelected
+                          ]} numberOfLines={1}>
+                            {member.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
               {validationErrors.assignedTo && (
                 <Text style={styles.errorText}>{validationErrors.assignedTo}</Text>
               )}
@@ -591,12 +744,14 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       width: '100%',
                       padding: '10px 12px',
                       fontSize: '16px',
-                      borderRadius: '8px',
-                      border: validationErrors.dueDate ? '1px solid #EF4444' : '1px solid #E5E7EB',
-                      backgroundColor: '#F8F9FA',
                       fontFamily: 'inherit',
+                      borderRadius: '8px',
+                      border: validationErrors.dueDate ? '2px solid #FF6B35' : '2px solid #E0E0E0',
+                      backgroundColor: '#FFFFFF',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      color: '#1F2937',
+                      fontWeight: '500'
                     }}
                   />
                 </View>
@@ -614,7 +769,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.datePickerButtonText}>
                       {dueDate || 'Selecciona una fecha'}
                     </Text>
-                    <Text style={styles.calendarIcon}>📅</Text>
+                    <Ionicons name="calendar" size={20} color={Colors.blue} />
                   </TouchableOpacity>
                   {showDatePicker && DateTimePicker && (
                     <DateTimePicker
@@ -639,14 +794,17 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
             </>
           ) : (
-            <Text style={styles.sectionValue}>
-              📅 {new Date(task.dueDate).toLocaleDateString('es-ES', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </Text>
+            <View style={styles.sectionValueContainer}>
+              <Ionicons name="calendar" size={16} color={Colors.blue} style={{ marginRight: 8 }} />
+              <Text style={styles.sectionValue}>
+                {new Date(task.dueDate).toLocaleDateString('es-ES', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </Text>
+            </View>
           )}
         </View>
 
@@ -765,7 +923,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 ))}
               </View>
             ) : (
-              <Text style={[styles.sectionValue, { color: '#6B7280', fontStyle: 'italic' }]}>
+              <Text style={[styles.sectionValue, { color: Colors.textSecondary, fontStyle: 'italic' }]}>
                 Sin categorías
               </Text>
             )
@@ -794,26 +952,42 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.saveButton, isSaving && styles.buttonDisabled]}
+              style={[styles.button, isSaving && styles.buttonDisabled]}
               onPress={handleSave}
               disabled={isSaving}
             >
-              {isSaving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Guardar</Text>
-              )}
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveButtonGradient}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Guardar</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.button, styles.editButton]}
+            style={styles.button}
             onPress={() => setIsEditing(true)}
           >
-            <Text style={styles.editButtonText}>✏️ Editar Tarea</Text>
+            <LinearGradient
+              colors={[Colors.blue, Colors.blueDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.editButtonGradient}
+            >
+              <Ionicons name="create" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.editButtonText}>Editar Tarea</Text>
+            </LinearGradient>
           </TouchableOpacity>
         )}
-      </ScrollView>
+        </ScrollView>
+      </LinearGradient>
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -838,76 +1012,88 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA'
-  },
-  scrollContent: {
-    padding: 20
-  },
-  statusBadge: {
-    backgroundColor: '#FF9500',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 24
-  },
-  statusBadgeCompleted: {
-    backgroundColor: '#34C759'
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
-  },
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-    textTransform: 'uppercase'
-  },
-  sectionValue: {
-    fontSize: 16,
-    color: '#1F2937',
-    lineHeight: 24
-  },
-  input: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    color: '#1F2937'
-  },
-  datePickerButton: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  datePickerButtonText: {
-    fontSize: 16,
-    color: '#1F2937',
     flex: 1
   },
-  calendarIcon: {
-    fontSize: 20,
-    marginLeft: 8
+  gradientBackground: {
+    flex: 1
+  },
+  scrollContent: {
+    padding: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingBottom: Spacing.xl,
+    maxWidth: 800,
+    alignSelf: 'center',
+    width: '100%'
+  },
+  statusBadge: {
+    overflow: 'hidden',
+    borderRadius: BorderRadius.base,
+    marginBottom: Spacing.xl
+  },
+  statusBadgeGradient: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
+  },
+  statusText: {
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
+  },
+  section: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.base,
+    ...Shadows.md
+  },
+  sectionLabel: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  sectionValue: {
+    fontSize: Typography.sizes.base,
+    color: Colors.textPrimary,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.base
+  },
+  input: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    fontSize: Typography.sizes.base,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    color: Colors.textPrimary,
+    ...Shadows.sm
+  },
+  datePickerButton: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...Shadows.sm
+  },
+  datePickerButtonText: {
+    fontSize: Typography.sizes.base,
+    color: Colors.textPrimary,
+    fontWeight: Typography.weights.medium,
+    flex: 1
+  },
+  sectionValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   textArea: {
     height: 100,
@@ -919,54 +1105,58 @@ const styles = StyleSheet.create({
   },
   priorityButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center'
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.base,
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.sm
   },
   priorityButtonHigh: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444'
+    backgroundColor: Colors.orange,
+    borderColor: Colors.orange
   },
   priorityButtonMedium: {
-    backgroundColor: '#FF9500',
-    borderColor: '#FF9500'
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue
   },
   priorityButtonLow: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759'
+    backgroundColor: Colors.priorityLow,
+    borderColor: Colors.priorityLow
   },
   priorityButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280'
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textSecondary
   },
   priorityButtonTextActive: {
-    color: '#FFFFFF'
+    color: Colors.white
   },
   priorityBadge: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: 'flex-start'
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    borderRadius: BorderRadius.base,
+    alignSelf: 'flex-start',
+    ...Shadows.sm
   },
   priorityBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold
   },
   metadataContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+    ...Shadows.sm
   },
   metadataText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -974,49 +1164,59 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
   },
-  editButton: {
-    backgroundColor: '#0066FF'
+  editButtonGradient: {
+    paddingVertical: Spacing.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   editButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
-  saveButton: {
-    backgroundColor: '#34C759'
+  saveButtonGradient: {
+    paddingVertical: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: Colors.white,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold
   },
   cancelButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderWidth: 2,
-    borderColor: '#E5E7EB'
+    borderColor: Colors.border,
+    ...Shadows.sm
   },
   cancelButtonText: {
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '600'
+    color: Colors.textSecondary,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    paddingVertical: Spacing.base,
+    textAlign: 'center'
   },
   buttonDisabled: {
     opacity: 0.6
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: Colors.orange,
     borderWidth: 2
   },
   errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4
+    color: Colors.orange,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs,
+    fontWeight: Typography.weights.medium
   },
   categoriesContainer: {
     flexDirection: 'row',
@@ -1025,15 +1225,91 @@ const styles = StyleSheet.create({
     marginTop: 8
   },
   categoryTag: {
-    backgroundColor: '#0066FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16
+    backgroundColor: Colors.blue,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: BorderRadius.full,
+    ...Shadows.xs
   },
   categoryText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500'
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.medium
+  },
+  dropdownContainer: {
+    position: 'relative',
+    zIndex: 10
+  },
+  dropdown: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...Shadows.sm
+  },
+  dropdownText: {
+    fontSize: Typography.sizes.base,
+    color: Colors.textPrimary,
+    fontWeight: Typography.weights.medium,
+    flex: 1
+  },
+  placeholder: {
+    color: Colors.textSecondary
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.base,
+    marginTop: Spacing.xs,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    maxHeight: 200,
+    zIndex: 1000,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    ...Shadows.md
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+    minHeight: 48
+  },
+  dropdownItemSelected: {
+    backgroundColor: Colors.blue
+  },
+  dropdownItemText: {
+    fontSize: Typography.sizes.base,
+    color: Colors.textPrimary,
+    fontWeight: Typography.weights.medium
+  },
+  dropdownItemTextSelected: {
+    color: Colors.white
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm
+  },
+  loadingText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary
   }
 });
 

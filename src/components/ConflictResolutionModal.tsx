@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { ConflictInfo, ConflictResolution, resolveConflict } from '../services/ConflictResolutionService';
 import { TaskModel } from '../models/TaskModel';
+import { Colors } from '../constants/design';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ConflictResolutionModalProps {
   visible: boolean;
@@ -61,10 +63,10 @@ const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = ({
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'Alta': return '#EF4444';
-      case 'Media': return '#FF9500';
-      case 'Baja': return '#34C759';
-      default: return '#6B7280';
+      case 'Alta': return Colors.priorityHigh;
+      case 'Media': return Colors.blue;
+      case 'Baja': return Colors.priorityLow;
+      default: return Colors.textSecondary;
     }
   };
 
@@ -78,7 +80,10 @@ const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = ({
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            <Text style={styles.title}>⚠️ Conflicto de Versión Detectado</Text>
+            <View style={styles.titleContainer}>
+              <Ionicons name="warning" size={24} color={Colors.orange} style={{ marginRight: 8 }} />
+              <Text style={styles.title}>Conflicto de Versión Detectado</Text>
+            </View>
             <Text style={styles.subtitle}>
               La tarea fue modificada por {conflict.lastModifiedByName} mientras la editabas.
             </Text>
@@ -218,12 +223,16 @@ const styles = StyleSheet.create({
   scrollView: {
     maxHeight: '80%'
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#EF4444',
-    marginBottom: 8,
-    textAlign: 'center'
+    color: Colors.orange
   },
   subtitle: {
     fontSize: 14,
@@ -292,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   optionButtonSelected: {
-    borderColor: '#0066FF',
+    borderColor: Colors.blue,
     backgroundColor: '#E3F2FD'
   },
   optionTitle: {
@@ -328,7 +337,7 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   resolveButton: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   resolveButtonText: {
     color: '#FFFFFF',

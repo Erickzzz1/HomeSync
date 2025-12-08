@@ -4,17 +4,27 @@
  * Define colores, tipografía, espaciado y otros valores de diseño
  * para mantener consistencia en toda la aplicación
  * 
- * Paleta de colores minimalista: Solo azul brillante, blanco y rojo
+ * Paleta de colores minimalista: Solo azul (gradiente #0066CC → #003366), blanco y rojo
  */
 
 export const Colors = {
-  // Colores base (solo estos 3 colores se usan en toda la app)
-  blue: '#007AFF', // Azul brillante (como WhatsApp verde)
+  // Colores base
+  blue: '#0066CC', // Azul medio (color principal del gradiente)
+  blueDark: '#003366', // Azul oscuro (color final del gradiente)
+  orange: '#FF6B35', // Naranja (color complementario del logo)
+  orangeLight: '#FF8C65', // Naranja claro
+  orangeDark: '#E55A2B', // Naranja oscuro
   white: '#FFFFFF', // Blanco
   red: '#FF3B30', // Rojo (solo para botones de eliminar)
   
+  // Gradientes
+  gradient: ['#0066CC', '#003366'], // Gradiente azul
+  gradientOrange: ['#FF6B35', '#E55A2B'], // Gradiente naranja
+  gradientBlueOrange: ['#0066CC', '#FF6B35'], // Gradiente azul a naranja
+  
   // Alias para compatibilidad
-  primary: '#007AFF', // Azul brillante
+  primary: '#0066CC', // Azul medio (color principal)
+  primaryDark: '#003366', // Azul oscuro
   background: '#FFFFFF', // Blanco
   backgroundSecondary: '#FFFFFF', // Blanco
   backgroundTertiary: '#F5F5F5', // Blanco ligeramente gris para contraste
@@ -31,9 +41,14 @@ export const Colors = {
   overlayLight: 'rgba(0, 0, 0, 0.3)',
   
   // Colores de prioridad (usando solo azul con diferentes intensidades)
-  priorityHigh: '#007AFF', // Azul brillante
-  priorityMedium: '#5AC8FA', // Azul claro
-  priorityLow: '#AFDEFA', // Azul muy claro
+  priorityHigh: '#003366', // Azul oscuro (más intenso)
+  priorityMedium: '#0066CC', // Azul medio (principal)
+  priorityLow: '#4A90E2', // Azul claro (menos intenso)
+  
+  // Color para tareas completadas
+  green: '#10B981', // Verde para tareas completadas
+  greenLight: '#34D399', // Verde claro
+  greenDark: '#059669', // Verde oscuro
 };
 
 export const Typography = {

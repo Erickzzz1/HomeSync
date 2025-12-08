@@ -21,6 +21,8 @@ import { TaskModel } from '../../models/TaskModel';
 import { AppStackParamList } from '../../navigation/AppNavigator';
 import { subscribeToTasks } from '../../services/TaskFirestoreService';
 import { Unsubscribe } from 'firebase/firestore';
+import { Colors } from '../../constants/design';
+import { Ionicons } from '@expo/vector-icons';
 
 type CalendarScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Calendar'>;
 
@@ -490,9 +492,12 @@ const CalendarScreen: React.FC<Props> = ({ navigation }) => {
                       </Text>
                     )}
                     <View style={styles.taskCardFooter}>
-                      <Text style={styles.taskCardAssigned}>
-                        👤 {getAssignedUserName(task.assignedTo)}
-                      </Text>
+                      <View style={styles.taskCardAssignedContainer}>
+                        <Ionicons name="person" size={14} color={Colors.blue} style={{ marginRight: 4 }} />
+                        <Text style={styles.taskCardAssigned}>
+                          {getAssignedUserName(task.assignedTo)}
+                        </Text>
+                      </View>
                       {task.categories && task.categories.length > 0 && (
                         <View style={styles.taskCardCategories}>
                           {task.categories.slice(0, 3).map((cat, idx) => (
@@ -538,7 +543,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   viewModeButtonActive: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   viewModeText: {
     fontSize: 14,
@@ -553,7 +558,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#34C759',
+    backgroundColor: Colors.blue,
     alignItems: 'center'
   },
   todayButtonText: {
@@ -581,7 +586,7 @@ const styles = StyleSheet.create({
   },
   navButtonText: {
     fontSize: 24,
-    color: '#0066FF',
+    color: Colors.blue,
     fontWeight: 'bold'
   },
   headerTitle: {
@@ -634,7 +639,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD'
   },
   weekDayColumnSelected: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   weekDayName: {
     fontSize: 12,
@@ -642,7 +647,7 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   weekDayNameToday: {
-    color: '#0066FF',
+    color: Colors.blue,
     fontWeight: '600'
   },
   weekDayNumber: {
@@ -651,14 +656,14 @@ const styles = StyleSheet.create({
     color: '#1F2937'
   },
   weekDayNumberToday: {
-    color: '#0066FF'
+    color: Colors.blue
   },
   weekTaskIndicator: {
     marginTop: 4,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FF9500',
+    backgroundColor: Colors.blue,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -687,7 +692,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD'
   },
   dayCellSelected: {
-    backgroundColor: '#0066FF'
+    backgroundColor: Colors.blue
   },
   dayNumber: {
     fontSize: 16,
@@ -698,7 +703,7 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
   dayNumberToday: {
-    color: '#0066FF',
+    color: Colors.blue,
     fontWeight: 'bold'
   },
   dayNumberSelected: {
@@ -716,10 +721,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FF9500'
+    backgroundColor: Colors.blue
   },
   taskDotMany: {
-    backgroundColor: '#EF4444'
+    backgroundColor: Colors.blueDark
   },
   taskCount: {
     fontSize: 8,
@@ -789,13 +794,13 @@ const styles = StyleSheet.create({
     marginLeft: 8
   },
   taskCardPriorityHigh: {
-    backgroundColor: '#EF4444'
+    backgroundColor: Colors.orange
   },
   taskCardPriorityMedium: {
-    backgroundColor: '#FF9500'
+    backgroundColor: Colors.blue
   },
   taskCardPriorityLow: {
-    backgroundColor: '#34C759'
+    backgroundColor: Colors.priorityLow
   },
   taskCardPriorityText: {
     fontSize: 10,
@@ -812,6 +817,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4
+  },
+  taskCardAssignedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   taskCardAssigned: {
     fontSize: 12,
@@ -830,7 +839,7 @@ const styles = StyleSheet.create({
   },
   taskCardCategoryText: {
     fontSize: 10,
-    color: '#0066FF',
+    color: Colors.blue,
     fontWeight: '500'
   }
 });

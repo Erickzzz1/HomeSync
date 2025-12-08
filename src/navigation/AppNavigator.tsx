@@ -9,6 +9,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAppSelector } from '../store/hooks';
 import { Colors } from '../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Platform, View } from 'react-native';
 
 // Importar pantallas
 import LoginScreen from '../views/screens/LoginScreen';
@@ -64,18 +66,34 @@ const AuthNavigator = () => {
 };
 
 /**
+ * Componente de header con gradiente
+ */
+const GradientHeader = () => (
+  <LinearGradient
+    colors={[Colors.blue, Colors.blueDark]}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 0 }}
+    style={{ flex: 1 }}
+  />
+);
+
+/**
  * Stack de la aplicación (después de autenticarse)
  */
 const AppNavigator = () => {
   return (
     <AppStack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: Colors.blue
-        },
+        headerBackground: () => <GradientHeader />,
         headerTintColor: Colors.white,
         headerTitleStyle: {
           fontWeight: 'bold'
+        },
+        headerStyle: {
+          ...(Platform.OS === 'android' && {
+            elevation: 0,
+            borderBottomWidth: 0
+          })
         }
       }}
     >

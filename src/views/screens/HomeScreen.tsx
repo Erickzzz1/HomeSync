@@ -12,10 +12,16 @@ import {
   StyleSheet,
   SafeAreaView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
+  Dimensions,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { logout } from '../../store/slices/authSlice';
@@ -125,68 +131,101 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header de Bienvenida */}
-        <View style={styles.welcomeCard}>
-          <View style={styles.welcomeIconContainer}>
-            <Ionicons name="hand-left" size={40} color={Colors.white} />
-          </View>
-          <Text style={styles.welcomeTitle}>
-            {user?.displayName 
-              ? `¡Bienvenid@, ${getFirstName(user.displayName)}!`
-              : '¡Bienvenid@!'}
-          </Text>
-          <Text style={styles.welcomeSubtitle}>
-            Has iniciado sesión en HomeSync
-          </Text>
-          {user?.email && (
-            <View style={styles.emailContainer}>
-              <Ionicons name="mail" size={16} color={Colors.blue} style={styles.emailIcon} />
-              <Text style={styles.userEmail}>{user.email}</Text>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            {/* Header de Bienvenida */}
+            <View style={styles.welcomeCard}>
+              <View style={styles.welcomeIconContainer}>
+                <Image 
+                  source={require('../../../assets/icon.png')} 
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.welcomeTitle}>
+                {user?.displayName 
+                  ? `¡Bienvenid@, ${getFirstName(user.displayName)}!`
+                  : '¡Bienvenid@!'}
+              </Text>
+              <Text style={styles.welcomeSubtitle}>
+                Has iniciado sesión en HomeSync
+              </Text>
+              {user?.email && (
+                <View style={styles.emailContainer}>
+                  <Ionicons name="mail" size={16} color={Colors.blue} style={styles.emailIcon} />
+                  <Text style={styles.userEmail}>{user.email}</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
 
-      
+            {/* Botón de Ir a Tareas */}
+            <TouchableOpacity
+              style={styles.tasksButton}
+              onPress={() => navigation.navigate('TaskList')}
+            >
+              <LinearGradient
+                colors={[Colors.blue, Colors.blueDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Ionicons name="list" size={20} color={Colors.white} style={styles.buttonIcon} />
+                <Text style={styles.tasksButtonText}>Ver Mis Tareas</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* Botón de Ir a Tareas */}
-        <TouchableOpacity
-          style={styles.tasksButton}
-          onPress={() => navigation.navigate('TaskList')}
-        >
-          <Ionicons name="list" size={20} color={Colors.white} style={styles.buttonIcon} />
-          <Text style={styles.tasksButtonText}>Ver Mis Tareas</Text>
-        </TouchableOpacity>
+            {/* Botón de Grupos Familiares */}
+            <TouchableOpacity
+              style={styles.familyButton}
+              onPress={() => navigation.navigate('FamilyGroups')}
+            >
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Ionicons name="people" size={20} color={Colors.white} style={styles.buttonIcon} />
+                <Text style={styles.familyButtonText}>Mis Grupos Familiares</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* Botón de Grupos Familiares */}
-        <TouchableOpacity
-          style={styles.familyButton}
-          onPress={() => navigation.navigate('FamilyGroups')}
-        >
-          <Ionicons name="people" size={20} color={Colors.white} style={styles.buttonIcon} />
-          <Text style={styles.familyButtonText}>Mis Grupos Familiares</Text>
-        </TouchableOpacity>
+            {/* Botón de Cerrar Sesión */}
+            <TouchableOpacity
+              style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
+              onPress={handleLogout}
+              disabled={isLoggingOut}
+            >
+              <LinearGradient
+                colors={[Colors.orange, Colors.orangeDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.logoutButtonGradient}
+              >
+                {isLoggingOut ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* Botón de Cerrar Sesión */}
-        <TouchableOpacity
-          style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
-          onPress={handleLogout}
-          disabled={isLoggingOut}
-        >
-          {isLoggingOut ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Versión 0.1.0 - Integración con Firebase
-          </Text>
-        </View>
-      </View>
+            {/* Footer */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Versión 0.1.0 - Integración con Firebase
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </LinearGradient>
       <CustomAlert
         visible={alertState.visible}
         type={alertState.type}
@@ -205,12 +244,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Colors.white
+    flex: 1
+  },
+  gradientBackground: {
+    flex: 1
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Spacing.xl
   },
   content: {
     flex: 1,
-    padding: Spacing.lg
+    padding: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%'
   },
   welcomeCard: {
     backgroundColor: Colors.white,
@@ -218,19 +266,23 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: 'center',
     marginBottom: Spacing.lg,
-    ...Shadows.md,
-    borderWidth: 1,
-    borderColor: Colors.border
+    ...Shadows.md
   },
   welcomeIconContainer: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.blue,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.base,
-    ...Shadows.base
+    ...Shadows.lg,
+    overflow: 'hidden',
+    padding: Spacing.sm
+  },
+  logoImage: {
+    width: '90%',
+    height: '90%'
   },
   welcomeTitle: {
     fontSize: Typography.sizes['2xl'],
@@ -266,54 +318,18 @@ const styles = StyleSheet.create({
   buttonIcon: {
     marginRight: Spacing.sm
   },
-  infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
-  },
-  infoTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 12
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8
-  },
-  featureItem: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
-    lineHeight: 20
-  },
   tasksButton: {
-    backgroundColor: Colors.blue,
     borderRadius: BorderRadius.base,
-    paddingVertical: Spacing.base,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginBottom: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'center',
     ...Shadows.base
+  },
+  buttonGradient: {
+    paddingVertical: Spacing.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
   },
   tasksButtonText: {
     color: Colors.white,
@@ -321,13 +337,9 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold
   },
   familyButton: {
-    backgroundColor: Colors.blue,
     borderRadius: BorderRadius.base,
-    paddingVertical: Spacing.base,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginBottom: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'center',
     ...Shadows.base
   },
   familyButtonText: {
@@ -336,14 +348,17 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold
   },
   logoutButton: {
-    backgroundColor: Colors.red,
     borderRadius: BorderRadius.base,
+    marginTop: 'auto',
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  logoutButtonGradient: {
     paddingVertical: Spacing.base,
     alignItems: 'center',
-    marginTop: 'auto',
     flexDirection: 'row',
     justifyContent: 'center',
-    ...Shadows.base
+    borderRadius: BorderRadius.base
   },
   logoutButtonDisabled: {
     opacity: 0.6
