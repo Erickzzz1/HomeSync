@@ -19,7 +19,7 @@ import './config/firebase.js'; // Inicializar Firebase
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 // Configuración de CORS para producción - permite todos los orígenes

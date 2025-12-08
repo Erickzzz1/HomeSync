@@ -24,9 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { logout, setUser } from '../../store/slices/authSlice';
-import { clearTasks } from '../../store/slices/taskSlice';
-import AuthRepository from '../../repositories/AuthRepository';
+import { setUser } from '../../store/slices/authSlice';
 import AuthViewModel from '../../viewmodels/AuthViewModel';
 import { getFirebaseAuth } from '../../services/FirebaseService';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -43,9 +41,9 @@ interface Props {
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAppSelector((state) => state.auth);
+  const { tasks } = useAppSelector((state) => state.tasks);
   const dispatch = useAppDispatch();
-  const { alertState, showError, showConfirm, showSuccess, hideAlert } = useCustomAlert();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { alertState, showError, showSuccess, hideAlert } = useCustomAlert();
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [hideVerifiedBadge, setHideVerifiedBadge] = useState(false);
   const authViewModel = new AuthViewModel();
@@ -180,18 +178,78 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
-   * Maneja el cierre de sesión
+   * Obtiene las 4 tareas más próximas a vencer
    */
-  const handleLogout = () => {
-    showConfirm(
-      '¿Estás seguro que deseas cerrar sesión?',
-      'Cerrar Sesión',
-      () => performLogout(),
-      undefined,
-      'Cerrar Sesión',
-      'Cancelar'
-    );
+  const getUpcomingTasks = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    // Filtrar tareas no completadas con fecha de vencimiento válida
+    const upcomingTasks = tasks
+      .filter(task => !task.isCompleted && task.dueDate)
+      .map(task => ({
+        ...task,
+        dueDateObj: new Date(task.dueDate)
+      }))
+      .filter(task => {
+        const dueDate = new Date(task.dueDateObj);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate >= now; // Solo tareas futuras o de hoy
+      })
+      .sort((a, b) => {
+        // Ordenar por fecha de vencimiento (más próximas primero)
+        return a.dueDateObj.getTime() - b.dueDateObj.getTime();
+      })
+      .slice(0, 4); // Tomar solo las 4 primeras
+
+    return upcomingTasks;
   };
+
+  /**
+   * Formatea la fecha para mostrar
+   */
+  const formatDueDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDate = new Date(date);
+    taskDate.setHours(0, 0, 0, 0);
+
+    const diffTime = taskDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return 'Hoy';
+    } else if (diffDays === 1) {
+      return 'Mañana';
+    } else if (diffDays < 7) {
+      return `En ${diffDays} días`;
+    } else {
+      // Formato: "DD/MM/YYYY"
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  };
+
+  /**
+   * Obtiene el color según la prioridad
+   */
+  const getPriorityColor = (priority: string): string => {
+    switch (priority) {
+      case 'Alta':
+        return Colors.blue;
+      case 'Media':
+        return Colors.priorityMedium;
+      case 'Baja':
+        return Colors.priorityLow;
+      default:
+        return Colors.blue;
+    }
+  };
+
+  const upcomingTasks = getUpcomingTasks();
 
   /**
    * Maneja el reenvío del email de verificación
@@ -221,32 +279,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       showError('Error inesperado al enviar el email de verificación');
     } finally {
       setIsSendingVerification(false);
-    }
-  };
-
-  /**
-   * Ejecuta el cierre de sesión
-   */
-  const performLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      const authRepository = new AuthRepository();
-      const result = await authRepository.signOut();
-      
-      if (result.success) {
-        // Limpiar tareas del estado antes de cerrar sesión
-        dispatch(clearTasks());
-        dispatch(logout());
-        // console.log('Sesión cerrada correctamente');
-      } else {
-        const errorMsg = result.error || 'No se pudo cerrar sesión';
-        showError(errorMsg);
-      }
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      showError('Error inesperado al cerrar sesión');
-    } finally {
-      setIsLoggingOut(false);
     }
   };
 
@@ -328,6 +360,42 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
+            {/* Sección de Tareas Próximas a Vencer */}
+            {upcomingTasks.length > 0 && (
+              <View style={styles.upcomingTasksContainer}>
+                <View style={styles.upcomingTasksHeader}>
+                  <Ionicons name="time-outline" size={20} color={Colors.blue} />
+                  <Text style={styles.upcomingTasksTitle}>Tareas próximas a vencer</Text>
+                </View>
+                {upcomingTasks.map((task) => (
+                  <TouchableOpacity
+                    key={task.id}
+                    style={styles.upcomingTaskCard}
+                    onPress={() => navigation.navigate('TaskDetail', { task })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.upcomingTaskContent}>
+                      <View style={styles.upcomingTaskLeft}>
+                        <View style={[styles.upcomingTaskPriority, { backgroundColor: getPriorityColor(task.priority) }]} />
+                        <View style={styles.upcomingTaskInfo}>
+                          <Text style={styles.upcomingTaskTitle} numberOfLines={1}>
+                            {task.title}
+                          </Text>
+                          <View style={styles.upcomingTaskMeta}>
+                            <Ionicons name="calendar-outline" size={12} color={Colors.textSecondary} />
+                            <Text style={styles.upcomingTaskDate}>
+                              {formatDueDate(task.dueDate)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             {/* Botón de Ir a Tareas */}
             <TouchableOpacity
               style={styles.tasksButton}
@@ -340,7 +408,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.buttonGradient}
               >
                 <Ionicons name="list" size={20} color={Colors.white} style={styles.buttonIcon} />
-                <Text style={styles.tasksButtonText}>Ver Mis Tareas</Text>
+                <Text style={styles.tasksButtonText}>Ver tareas</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -356,36 +424,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.buttonGradient}
               >
                 <Ionicons name="people" size={20} color={Colors.white} style={styles.buttonIcon} />
-                <Text style={styles.familyButtonText}>Mis Grupos Familiares</Text>
+                <Text style={styles.familyButtonText}>Mis grupos</Text>
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Botón de Cerrar Sesión */}
-            <TouchableOpacity
-              style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
-              onPress={handleLogout}
-              disabled={isLoggingOut}
-            >
-              <LinearGradient
-                colors={[Colors.orange, Colors.orangeDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.logoutButtonGradient}
-              >
-                {isLoggingOut ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                Versión 0.1.0 - Integración con Firebase
-              </Text>
-            </View>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -581,33 +623,63 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold
   },
-  logoutButton: {
-    borderRadius: BorderRadius.base,
-    marginTop: 'auto',
-    overflow: 'hidden',
-    ...Shadows.base
+  upcomingTasksContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.lg,
+    ...Shadows.md
   },
-  logoutButtonGradient: {
-    paddingVertical: Spacing.base,
-    alignItems: 'center',
+  upcomingTasksHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.base
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    gap: Spacing.sm
   },
-  logoutButtonDisabled: {
-    opacity: 0.6
+  upcomingTasksTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary
   },
-  logoutButtonText: {
-    color: Colors.textInverse,
+  upcomingTaskCard: {
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.base,
+    backgroundColor: Colors.backgroundTertiary,
+    overflow: 'hidden'
+  },
+  upcomingTaskContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.base
+  },
+  upcomingTaskLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: Spacing.sm
+  },
+  upcomingTaskPriority: {
+    width: 4,
+    height: 40,
+    borderRadius: BorderRadius.sm
+  },
+  upcomingTaskInfo: {
+    flex: 1
+  },
+  upcomingTaskTitle: {
     fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.bold
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs
   },
-  footer: {
-    marginTop: Spacing.base,
-    alignItems: 'center'
+  upcomingTaskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs
   },
-  footerText: {
-    fontSize: Typography.sizes.xs,
+  upcomingTaskDate: {
+    fontSize: Typography.sizes.sm,
     color: Colors.textSecondary
   }
 });

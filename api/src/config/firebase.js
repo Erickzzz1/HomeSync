@@ -35,24 +35,31 @@ const requiredVars = [
 
 const missingVars = requiredVars.filter(varName => !process.env[varName]);
 
+// Inicializar Firebase solo si todas las variables están presentes
+let app = null;
+let auth = null;
+let firestore = null;
+
 if (missingVars.length > 0) {
-  throw new Error(
-    `Faltan las siguientes variables de entorno: ${missingVars.join(', ')}\n` +
-    'Por favor, configura tu archivo .env basándote en .env.example'
+  console.warn(
+    `⚠️  Advertencia: Faltan las siguientes variables de entorno: ${missingVars.join(', ')}\n` +
+    'El servidor iniciará pero Firebase no funcionará hasta que se configuren.\n' +
+    'Configúralas en Cloud Run Console -> Variables & Secrets'
   );
-}
-
-// Inicializar Firebase (si no está inicializado)
-let app;
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
 } else {
-  app = getApps()[0];
+  // Inicializar Firebase (si no está inicializado)
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApps()[0];
+  }
+  
+  // Exportar servicios solo si Firebase está inicializado
+  auth = getAuth(app);
+  firestore = getFirestore(app);
 }
 
-// Exportar servicios
-export const auth = getAuth(app);
-export const firestore = getFirestore(app);
+export { auth, firestore };
 
 export default {
   auth,

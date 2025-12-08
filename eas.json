@@ -14,7 +14,7 @@
         "buildType": "apk"
       },
       "env": {
-        "API_BASE_URL": "https://homesync-umzq.onrender.com"
+        "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app"
       },
       "node": "20.11.0"
     },
@@ -23,7 +23,7 @@
         "buildType": "apk"
       },
       "env": {
-        "API_BASE_URL": "https://homesync-umzq.onrender.com"
+        "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app"
       },
       "node": "20.11.0"
     }
