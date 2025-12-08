@@ -11,7 +11,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
         "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app"
@@ -20,7 +21,8 @@
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
         "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app"
