@@ -75,24 +75,21 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
-def hermesEnabled = (findProperty('hermesEnabled') ?: 'true').toBoolean()
 
 android {
     ndkVersion rootProject.ext.ndkVersion
 
     compileSdkVersion rootProject.ext.compileSdkVersion
 
-    namespace "com.homesync.app"
+    namespace 'com.homesync.app'
     defaultConfig {
-        applicationId "com.homesync.app"
+        applicationId 'com.homesync.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "0.1.0"
 
         buildConfigField("boolean", "REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS", (findProperty("reactNative.unstable_useRuntimeSchedulerAlways") ?: true).toString())
-        buildConfigField("boolean", "IS_NEW_ARCHITECTURE_ENABLED", (findProperty("newArchEnabled") ?: false).toString())
-        buildConfigField("boolean", "IS_HERMES_ENABLED", (findProperty("hermesEnabled") ?: true).toString())
     }
     signingConfigs {
         debug {

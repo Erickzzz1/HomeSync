@@ -7,45 +7,132 @@
  * - Observador de autenticación (a través de la API)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { StatusBar } from 'react-native';
 import { Provider } from 'react-redux';
 import { store } from './src/store/store';
 import RootNavigator from './src/navigation/AppNavigator';
 import { setUser } from './src/store/slices/authSlice';
-import { clearTasks } from './src/store/slices/taskSlice';
+import { clearTasks, setTasks } from './src/store/slices/taskSlice';
 import AuthRepository from './src/repositories/AuthRepository';
 import { Colors } from './src/constants/design';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import { subscribeToTasks } from './src/services/TaskFirestoreService';
+import { Unsubscribe } from 'firebase/firestore';
+import NetInfo from '@react-native-community/netinfo';
 
 /**
  * Componente principal de la aplicación
  */
 export default function App() {
-  useEffect(() => {
-    // Configurar listener de autenticación persistente
-    // Ahora se conecta a la API en lugar de Firebase directamente
-    try {
-      const authRepository = new AuthRepository();
-      const unsubscribe = authRepository.onAuthStateChanged((user) => {
-        store.dispatch(setUser(user));
-        // Limpiar tareas cuando el usuario se desautentica
-        if (!user) {
-          store.dispatch(clearTasks());
-        }
-      });
+  const unsubscribeTasksRef = useRef<Unsubscribe | null>(null);
+  const unsubscribeNetInfoRef = useRef<any>(null);
 
-      // Cleanup al desmontar
-      return () => unsubscribe();
+  /**
+   * Configura el listener de tareas en tiempo real
+   */
+  const setupTasksListener = useCallback((userId: string) => {
+    // Limpiar listener anterior si existe
+    if (unsubscribeTasksRef.current) {
+      unsubscribeTasksRef.current();
+      unsubscribeTasksRef.current = null;
+    }
+
+    try {
+      unsubscribeTasksRef.current = subscribeToTasks(
+        userId,
+        (tasks) => {
+          // Actualizar tareas en Redux
+          store.dispatch(setTasks(tasks));
+        },
+        (error) => {
+          console.error('Error en listener de tareas:', error);
+          // En caso de error, mantener las tareas actuales o limpiar
+          store.dispatch(setTasks([]));
+        }
+      );
     } catch (error) {
-      console.error('Error al inicializar la aplicación:', error);
+      console.error('Error al configurar listener de tareas:', error);
     }
   }, []);
 
+  useEffect(() => {
+    // Configurar listener de autenticación persistente
+    // Ahora se conecta a la API en lugar de Firebase directamente
+    let unsubscribe: (() => void) | null = null;
+    
+    try {
+      const authRepository = new AuthRepository();
+      unsubscribe = authRepository.onAuthStateChanged((user) => {
+        try {
+          store.dispatch(setUser(user));
+          
+          // Limpiar listener de tareas anterior si existe
+          if (unsubscribeTasksRef.current) {
+            unsubscribeTasksRef.current();
+            unsubscribeTasksRef.current = null;
+          }
+          
+          if (user) {
+            // Configurar listener de tareas cuando el usuario se autentica
+            setupTasksListener(user.uid);
+          } else {
+            // Limpiar tareas cuando el usuario se desautentica
+            store.dispatch(clearTasks());
+          }
+        } catch (error) {
+          console.error('Error al actualizar estado de autenticación:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error al inicializar la aplicación:', error);
+      // Asegurar que la app no se cierre por este error
+    }
+
+    // Configurar listener de conexión de red
+    unsubscribeNetInfoRef.current = NetInfo.addEventListener(state => {
+      const isOnline = state.isConnected ?? false;
+      const currentUser = store.getState().auth.user;
+      
+      if (currentUser && isOnline) {
+        // Si hay usuario y hay conexión, configurar listener de tareas
+        if (!unsubscribeTasksRef.current) {
+          setupTasksListener(currentUser.uid);
+        }
+      } else if (!isOnline) {
+        // Si no hay conexión, limpiar listener
+        if (unsubscribeTasksRef.current) {
+          unsubscribeTasksRef.current();
+          unsubscribeTasksRef.current = null;
+        }
+      }
+    });
+
+    // Cleanup al desmontar
+    return () => {
+      try {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+        if (unsubscribeTasksRef.current) {
+          unsubscribeTasksRef.current();
+        }
+        if (unsubscribeNetInfoRef.current) {
+          unsubscribeNetInfoRef.current();
+        }
+      } catch (error) {
+        console.error('Error al limpiar listeners:', error);
+      }
+    };
+  }, [setupTasksListener]);
+
   return (
-    <Provider store={store}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.blue} />
-      <RootNavigator />
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.blue} />
+        <RootNavigator />
+      </Provider>
+    </ErrorBoundary>
   );
 }
 

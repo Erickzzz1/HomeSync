@@ -73,7 +73,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   const [priority, setPriority] = useState<TaskPriority>('Media');
   const [categories, setCategories] = useState<string[]>([]);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const [errors, setErrors] = useState<any>({});
+  const [errors, setErrors] = useState<{title?: string; description?: string; assignedTo?: string; dueDate?: string; priority?: string; reminderTime?: string}>({});
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [isLoadingFamily, setIsLoadingFamily] = useState(true);
@@ -234,12 +234,47 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   /**
+   * Obtiene la fecha de hoy a medianoche (sin hora)
+   * Usa la fecha local del dispositivo para evitar problemas de zona horaria
+   */
+  const getTodayAtMidnight = (): Date => {
+    const now = new Date();
+    // Usar métodos locales para evitar problemas de zona horaria
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+    // Crear fecha en hora local (no UTC)
+    const today = new Date(year, month, day, 0, 0, 0, 0);
+    return today;
+  };
+
+  /**
    * Normaliza una fecha a medianoche para comparación
+   * Parsea el string de fecha (formato YYYY-MM-DD) y crea una fecha local
    */
   const normalizeDateToMidnight = (dateString: string): Date => {
+    // Si el string está en formato YYYY-MM-DD, parsearlo directamente
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Los meses en JS son 0-indexed
+      const day = parseInt(parts[2], 10);
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    // Fallback: usar el constructor Date normal
     const date = new Date(dateString);
     date.setHours(0, 0, 0, 0);
     return date;
+  };
+
+  /**
+   * Normaliza un objeto Date a medianoche para comparación
+   */
+  const normalizeDateObjectToMidnight = (date: Date): Date => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    return new Date(year, month, day, 0, 0, 0, 0);
   };
 
   /**
@@ -302,11 +337,13 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     // Validar fecha no pasada (normalizada a medianoche)
+    // Permitir seleccionar hoy
     if (dueDate) {
       const selectedDateNormalized = normalizeDateToMidnight(dueDate);
-      const todayNormalized = normalizeDateToMidnight(new Date().toISOString().split('T')[0]);
+      const todayNormalized = getTodayAtMidnight();
       
-      if (selectedDateNormalized < todayNormalized) {
+      // Comparar usando getTime() para evitar problemas de referencia
+      if (selectedDateNormalized.getTime() < todayNormalized.getTime()) {
         setErrors({ dueDate: 'La fecha no puede ser anterior a hoy' });
         return;
       }
@@ -419,11 +456,13 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     if (event.type === 'set' && date) {
-      // Validar que no sea fecha pasada
-      const selectedDateNormalized = normalizeDateToMidnight(formatDateForDisplay(date));
-      const todayNormalized = normalizeDateToMidnight(new Date().toISOString().split('T')[0]);
+      // Validar que no sea fecha pasada (permitir seleccionar hoy)
+      // Normalizar directamente el objeto Date sin convertir a string primero
+      const selectedDateNormalized = normalizeDateObjectToMidnight(date);
+      const todayNormalized = getTodayAtMidnight();
       
-      if (selectedDateNormalized < todayNormalized) {
+      // Permitir seleccionar hoy (>= en lugar de >)
+      if (selectedDateNormalized.getTime() < todayNormalized.getTime()) {
         setErrors({ ...errors, dueDate: 'La fecha no puede ser anterior a hoy' });
         setShowDatePicker(false);
         return;
@@ -490,14 +529,14 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Descripción */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Descripción</Text>
+            <Text style={styles.label}>Descripción (Opcional)</Text>
             <TextInput
               style={[
                 styles.input,
                 styles.textArea,
                 errors.description && styles.inputError
               ]}
-              placeholder="Describe los detalles de la tarea..."
+              placeholder="Describe los detalles de la tarea (opcional)..."
               placeholderTextColor="#6B7280"
               value={description}
               onChangeText={(text) => {
@@ -616,12 +655,13 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                   value={dueDate}
                   onChange={(e: any) => {
                     const dateValue = e.target.value;
-                    // Validar que no sea fecha pasada
+                    // Validar que no sea fecha pasada (permitir seleccionar hoy)
                     if (dateValue) {
                       const selectedDateNormalized = normalizeDateToMidnight(dateValue);
-                      const todayNormalized = normalizeDateToMidnight(new Date().toISOString().split('T')[0]);
+                      const todayNormalized = getTodayAtMidnight();
                       
-                      if (selectedDateNormalized < todayNormalized) {
+                      // Comparar usando getTime() para evitar problemas de referencia
+                      if (selectedDateNormalized.getTime() < todayNormalized.getTime()) {
                         setErrors({ ...errors, dueDate: 'La fecha no puede ser anterior a hoy' });
                         return;
                       }
@@ -636,7 +676,13 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                       setErrors({ ...errors, dueDate: undefined });
                     }
                   }}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={(() => {
+                    const today = getTodayAtMidnight();
+                    const year = today.getFullYear();
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const day = String(today.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                  })()}
                   disabled={isLoading}
                   style={{
                     width: '100%',
@@ -681,8 +727,10 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={handleDateChange}
-                    minimumDate={new Date()}
+                    minimumDate={getTodayAtMidnight()}
                     locale="es-ES"
+                    themeVariant="light"
+                    accentColor={Colors.blue}
                   />
                 )}
                 <Text style={styles.helperText}>
@@ -748,18 +796,46 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={(event: any, selectedTime?: Date) => {
                       setShowTimePicker(false);
-                      if (selectedTime) {
+                      if (selectedTime && event.type === 'set') {
+                        // Validar hora si la fecha seleccionada es hoy
+                        if (dueDate) {
+                          const selectedDateNormalized = normalizeDateToMidnight(dueDate);
+                          const todayNormalized = getTodayAtMidnight();
+                          
+                          // Si la fecha es hoy, validar que la hora no sea anterior a la actual
+                          if (selectedDateNormalized.getTime() === todayNormalized.getTime()) {
+                            const now = new Date();
+                            const selectedDateTime = new Date();
+                            selectedDateTime.setHours(selectedTime.getHours());
+                            selectedDateTime.setMinutes(selectedTime.getMinutes());
+                            selectedDateTime.setSeconds(0);
+                            
+                            if (selectedDateTime < now) {
+                              setErrors({ ...errors, reminderTime: 'La hora no puede ser anterior a la hora actual' });
+                              return;
+                            }
+                          }
+                        }
+                        
                         const hours = selectedTime.getHours().toString().padStart(2, '0');
                         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
                         setReminderTime(`${hours}:${minutes}`);
+                        if (errors.reminderTime) {
+                          setErrors({ ...errors, reminderTime: undefined });
+                        }
                       }
                     }}
                     locale="es-ES"
+                    themeVariant="light"
+                    accentColor={Colors.blue}
                   />
                 )}
                 <Text style={styles.helperText}>
                   Toca el campo para seleccionar una hora (opcional)
                 </Text>
+                {errors.reminderTime && (
+                  <Text style={styles.errorText}>{errors.reminderTime}</Text>
+                )}
               </>
             )}
           </View>

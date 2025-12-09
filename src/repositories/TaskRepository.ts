@@ -70,26 +70,38 @@ class TaskRepository implements ITaskRepository {
           : []
       });
 
-      if (!response.success) {
+      // Verificar si la respuesta tiene éxito
+      if (response && response.success && response.task) {
         return {
-          success: false,
-          error: response.error || 'Error al crear la tarea',
-          errorCode: response.errorCode
+          success: true,
+          task: response.task
         };
       }
 
-      // console.log('Tarea creada exitosamente:', response.task?.id);
-
+      // Si no tiene éxito, retornar error
       return {
-        success: true,
-        task: response.task
+        success: false,
+        error: response?.error || response?.message || 'Error al crear la tarea',
+        errorCode: response?.errorCode || 'CREATE_TASK_ERROR'
       };
     } catch (error: any) {
       console.error('Error al crear tarea:', error);
+      
+      // Manejar diferentes tipos de errores
+      if (error?.response) {
+        // Error de la API con respuesta
+        return {
+          success: false,
+          error: error.response.error || error.response.message || 'Error al crear la tarea',
+          errorCode: error.response.errorCode || error.errorCode || 'CREATE_TASK_ERROR'
+        };
+      }
+      
+      // Error de red u otro error
       return {
         success: false,
-        error: error.message || 'Ocurrió un error al crear la tarea',
-        errorCode: 'CREATE_TASK_ERROR'
+        error: error.message || 'Ocurrió un error al crear la tarea. Verifica tu conexión a internet.',
+        errorCode: error.errorCode || 'CREATE_TASK_ERROR'
       };
     }
   }
@@ -242,36 +254,56 @@ class TaskRepository implements ITaskRepository {
       // Enviar petición a la API
       const response = await ApiService.put<ApiTaskResponse>(`/api/tasks/${taskId}`, updateData);
 
-      if (!response.success) {
-        // Si hay un conflicto, retornar información del conflicto
-        if (response.errorCode === 'CONFLICT' && response.conflict) {
-          return {
-            success: false,
-            error: response.error || 'Conflicto de versión detectado',
-            errorCode: 'CONFLICT',
-            conflict: response.conflict
-          };
-        }
-        
+      // Verificar si la respuesta tiene éxito
+      if (response && response.success && response.task) {
         return {
-          success: false,
-          error: response.error || 'Error al actualizar la tarea',
-          errorCode: response.errorCode
+          success: true,
+          task: response.task
         };
       }
 
-      // console.log('Tarea actualizada exitosamente:', taskId);
+      // Si hay conflicto de versión, retornar información del conflicto
+      if (response?.conflict || (response?.errorCode === 'CONFLICT' && response?.conflict)) {
+        return {
+          success: false,
+          error: 'La tarea fue modificada por otro usuario',
+          errorCode: 'VERSION_CONFLICT',
+          conflict: response.conflict
+        };
+      }
 
+      // Si no tiene éxito, retornar error
       return {
-        success: true,
-        task: response.task
+        success: false,
+        error: response?.error || response?.message || 'Error al actualizar la tarea',
+        errorCode: response?.errorCode || 'UPDATE_TASK_ERROR'
       };
     } catch (error: any) {
       console.error('Error al actualizar tarea:', error);
+      
+      // Manejar diferentes tipos de errores
+      if (error?.response) {
+        // Error de la API con respuesta
+        if (error.response.conflict) {
+          return {
+            success: false,
+            error: 'La tarea fue modificada por otro usuario',
+            errorCode: 'VERSION_CONFLICT',
+            conflict: error.response.conflict
+          };
+        }
+        return {
+          success: false,
+          error: error.response.error || error.response.message || 'Error al actualizar la tarea',
+          errorCode: error.response.errorCode || error.errorCode || 'UPDATE_TASK_ERROR'
+        };
+      }
+      
+      // Error de red u otro error
       return {
         success: false,
-        error: error.message || 'Ocurrió un error al actualizar la tarea',
-        errorCode: 'UPDATE_TASK_ERROR'
+        error: error.message || 'Ocurrió un error al actualizar la tarea. Verifica tu conexión a internet.',
+        errorCode: error.errorCode || 'UPDATE_TASK_ERROR'
       };
     }
   }
@@ -382,13 +414,16 @@ class TaskRepository implements ITaskRepository {
       return 'El título no puede exceder 100 caracteres';
     }
 
-    // Validar descripción
-    if (!data.description || !data.description.trim()) {
-      return 'La descripción es requerida';
+    // Validar descripción (opcional)
+    if (data.description && data.description.trim()) {
+      if (data.description.trim().length < 5) {
+        return 'La descripción debe tener al menos 5 caracteres si se proporciona';
+      }
+      if (data.description.length > 500) {
+        return 'La descripción no puede exceder 500 caracteres';
+      }
     }
-    if (data.description.length > 500) {
-      return 'La descripción no puede exceder 500 caracteres';
-    }
+    // Si está vacía o no se proporciona, está bien (es opcional)
 
     // Validar asignado
     if (!data.assignedTo || !data.assignedTo.trim()) {

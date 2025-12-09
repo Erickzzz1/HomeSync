@@ -16,7 +16,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  Dimensions
+  Dimensions,
+  RefreshControl
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
@@ -81,6 +82,7 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
   const [newShareCode, setNewShareCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
 
   const familyRepository = new FamilyRepository();
@@ -132,6 +134,20 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  /**
+   * Maneja el pull-to-refresh
+   */
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadData();
+    } catch (error) {
+      console.error('Error al refrescar:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   /**
    * Carga el shareCode y los familiares
@@ -243,7 +259,17 @@ const FamilyScreen: React.FC<Props> = ({ navigation }) => {
         colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
         style={styles.gradientBackground}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.blue]}
+              tintColor={Colors.blue}
+            />
+          }
+        >
         {/* Botón para ir a grupos familiares */}
         <TouchableOpacity
           style={styles.groupsButton}

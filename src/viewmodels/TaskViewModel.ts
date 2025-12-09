@@ -321,13 +321,26 @@ class TaskViewModel {
     if (!dueDate) {
       errors.dueDate = 'La fecha de vencimiento es requerida';
     } else {
-      const selectedDate = new Date(dueDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Normalizar la fecha seleccionada parseando el string YYYY-MM-DD directamente
+      const parts = dueDate.split('-');
+      let selectedDate: Date;
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Los meses en JS son 0-indexed
+        const day = parseInt(parts[2], 10);
+        selectedDate = new Date(year, month, day, 0, 0, 0, 0);
+      } else {
+        selectedDate = new Date(dueDate);
+        selectedDate.setHours(0, 0, 0, 0);
+      }
+      
+      // Obtener hoy a medianoche usando fecha local
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
       if (isNaN(selectedDate.getTime())) {
         errors.dueDate = 'La fecha no es válida';
-      } else if (selectedDate < today) {
+      } else if (selectedDate.getTime() < today.getTime()) {
         errors.dueDate = 'La fecha no puede ser anterior a hoy';
       }
     }

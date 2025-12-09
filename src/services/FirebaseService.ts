@@ -38,18 +38,28 @@ const firebaseConfig = {
 };
 
 // Inicializar Firebase (si no está inicializado)
-let app: FirebaseApp;
-let auth: Auth;
-let firestore: Firestore;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let firestore: Firestore | null = null;
 
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  firestore = getFirestore(app);
-} else {
-  app = getApps()[0];
-  auth = getAuth(app);
-  firestore = getFirestore(app);
+try {
+  // Solo inicializar si tenemos las configuraciones mínimas necesarias
+  if (FIREBASE_API_KEY && FIREBASE_PROJECT_ID) {
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      firestore = getFirestore(app);
+    } else {
+      app = getApps()[0];
+      auth = getAuth(app);
+      firestore = getFirestore(app);
+    }
+  } else {
+    console.warn('Firebase no inicializado: Variables de entorno faltantes');
+  }
+} catch (error) {
+  console.error('Error al inicializar Firebase:', error);
+  // Continuar sin Firebase - la app puede funcionar sin él para algunas funciones
 }
 
 /**
@@ -58,6 +68,11 @@ if (getApps().length === 0) {
  */
 export const syncFirebaseAuth = async (email: string, password: string): Promise<boolean> => {
   try {
+    if (!auth) {
+      console.warn('Firebase Auth no está disponible');
+      return false;
+    }
+    
     // Si ya hay un usuario autenticado, cerrar sesión primero
     if (auth.currentUser) {
       await signOut(auth);
@@ -77,6 +92,9 @@ export const syncFirebaseAuth = async (email: string, password: string): Promise
  */
 export const signOutFirebase = async (): Promise<void> => {
   try {
+    if (!auth) {
+      return;
+    }
     await signOut(auth);
   } catch (error) {
     console.error('Error al cerrar sesión en Firebase:', error);
@@ -86,7 +104,7 @@ export const signOutFirebase = async (): Promise<void> => {
 /**
  * Obtiene la instancia de Firebase Auth
  */
-export const getFirebaseAuth = (): Auth => {
+export const getFirebaseAuth = (): Auth | null => {
   return auth;
 };
 

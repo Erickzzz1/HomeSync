@@ -16,13 +16,20 @@ if (Platform.OS !== 'web') {
   try {
     Notifications = require('expo-notifications');
     // Configurar cómo se manejan las notificaciones cuando la app está en primer plano
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-      }),
-    });
+    // Compatibilidad con diferentes versiones de expo-notifications
+    if (Notifications.setNotificationHandler) {
+      try {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+          }),
+        });
+      } catch (error) {
+        console.warn('Error al configurar notification handler:', error);
+      }
+    }
   } catch (error) {
     console.warn('expo-notifications no está disponible:', error);
   }
@@ -77,10 +84,19 @@ export async function getNotificationToken(): Promise<string | null> {
     }
 
     // Obtener token para móvil (iOS/Android)
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID || undefined,
-    });
-    return tokenData.data;
+    // En expo-notifications 0.20.1, getExpoPushTokenAsync puede retornar directamente el string
+    // o un objeto dependiendo de la versión
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: process.env.EXPO_PUBLIC_PROJECT_ID || undefined,
+      });
+      // Compatibilidad con diferentes versiones de la API
+      return typeof tokenData === 'string' ? tokenData : tokenData?.data || tokenData;
+    } catch (error) {
+      // Si falla con projectId, intentar sin él (versiones más antiguas)
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      return typeof tokenData === 'string' ? tokenData : tokenData?.data || tokenData;
+    }
   } catch (error) {
     console.error('Error al obtener token de notificación:', error);
     return null;
@@ -92,12 +108,12 @@ export async function getNotificationToken(): Promise<string | null> {
  */
 export async function registerNotificationToken(token: string): Promise<boolean> {
   try {
-    const response = await ApiService.post('/api/notifications/register', {
+    const response = await ApiService.post<{ success?: boolean }>('/api/notifications/register', {
       token,
       platform: Platform.OS,
     });
 
-    return response.success === true;
+    return response?.success === true;
   } catch (error) {
     console.error('Error al registrar token de notificación:', error);
     return false;
@@ -150,9 +166,22 @@ export function setupNotificationListeners(
     });
 
     // Retornar función para limpiar listeners
+    // Compatibilidad con diferentes versiones de expo-notifications
     return () => {
-      Notifications.removeNotificationSubscription(receivedListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      try {
+        if (receivedListener && typeof receivedListener.remove === 'function') {
+          receivedListener.remove();
+        } else if (Notifications.removeNotificationSubscription) {
+          Notifications.removeNotificationSubscription(receivedListener);
+        }
+        if (responseListener && typeof responseListener.remove === 'function') {
+          responseListener.remove();
+        } else if (Notifications.removeNotificationSubscription) {
+          Notifications.removeNotificationSubscription(responseListener);
+        }
+      } catch (error) {
+        console.warn('Error al remover listeners de notificación:', error);
+      }
     };
   } catch (error) {
     console.error('Error al configurar listeners de notificación:', error);

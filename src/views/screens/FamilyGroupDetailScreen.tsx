@@ -518,27 +518,31 @@ const FamilyGroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                           </View>
                         </View>
                       )}
+                      
+                      {/* Botón eliminar solo visible para admins y no para sí mismo */}
+                      {canRemoveMember && (
+                        <View style={styles.removeButtonContainer}>
+                          <TouchableOpacity
+                            style={[styles.removeButton, isLoading && styles.buttonDisabled]}
+                            onPress={() => {
+                              console.log('Botón eliminar presionado para:', member.uid);
+                              handleRemoveMember(member);
+                            }}
+                            disabled={isLoading}
+                          >
+                            <LinearGradient
+                              colors={[Colors.orange, Colors.orangeDark]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.removeButtonGradient}
+                            >
+                              <Ionicons name="trash" size={14} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                              <Text style={styles.removeButtonText}>Eliminar</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
-                    {/* Botón eliminar solo visible para admins y no para sí mismo */}
-                    {canRemoveMember && (
-                      <TouchableOpacity
-                        style={[styles.removeButton, isLoading && styles.buttonDisabled]}
-                        onPress={() => {
-                          console.log('Botón eliminar presionado para:', member.uid);
-                          handleRemoveMember(member);
-                        }}
-                        disabled={isLoading}
-                      >
-                        <LinearGradient
-                          colors={[Colors.orange, Colors.orangeDark]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.removeButtonGradient}
-                        >
-                          <Text style={styles.removeButtonText}>Eliminar</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
                   </View>
                 );
               })}
@@ -751,9 +755,6 @@ const styles = StyleSheet.create({
     gap: 12
   },
   memberCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.base,
     padding: Spacing.base,
@@ -763,7 +764,7 @@ const styles = StyleSheet.create({
     ...Shadows.sm
   },
   memberInfo: {
-    flex: 1
+    width: '100%'
   },
   memberHeader: {
     flexDirection: 'row',
@@ -845,17 +846,27 @@ const styles = StyleSheet.create({
   roleButtonTextActive: {
     color: '#FFFFFF'
   },
+  removeButtonContainer: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    alignItems: 'center'
+  },
   removeButton: {
     overflow: 'hidden',
     borderRadius: BorderRadius.base,
-    ...Shadows.sm
+    ...Shadows.sm,
+    alignSelf: 'center'
   },
   removeButtonGradient: {
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm + 2,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: BorderRadius.base
+    borderRadius: BorderRadius.base,
+    minWidth: 100
   },
   removeButtonText: {
     color: Colors.white,

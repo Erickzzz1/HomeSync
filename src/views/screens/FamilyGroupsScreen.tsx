@@ -16,7 +16,8 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Dimensions
+  Dimensions,
+  RefreshControl
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
@@ -53,6 +54,7 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinGroupCode, setJoinGroupCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
 
   const familyGroupRepository = new FamilyGroupRepository();
@@ -80,6 +82,24 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
 
     return unsubscribe;
   }, [navigation]);
+
+  /**
+   * Maneja el pull-to-refresh
+   */
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadGroups(),
+        loadShareCode(),
+        loadNotifications()
+      ]);
+    } catch (error) {
+      console.error('Error al refrescar:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   /**
    * Carga la lista de grupos
@@ -276,7 +296,17 @@ const FamilyGroupsScreen: React.FC<Props> = ({ navigation }) => {
         colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
         style={styles.gradientBackground}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.blue]}
+              tintColor={Colors.blue}
+            />
+          }
+        >
         {/* Notificaciones de grupos */}
         {notifications.length > 0 && (
           <View style={styles.notificationsSection}>

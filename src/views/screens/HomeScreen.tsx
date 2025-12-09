@@ -15,7 +15,8 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
-  ScrollView
+  ScrollView,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/design';
@@ -46,6 +47,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { alertState, showError, showSuccess, hideAlert } = useCustomAlert();
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [hideVerifiedBadge, setHideVerifiedBadge] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const authViewModel = new AuthViewModel();
 
   // Resetear el estado del badge cuando el usuario se verifica
@@ -252,6 +254,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const upcomingTasks = getUpcomingTasks();
 
   /**
+   * Maneja el pull-to-refresh
+   */
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Recargar usuario
+      await authViewModel.reloadUser();
+      // Las tareas se recargan automáticamente por el listener de Firestore
+    } catch (error) {
+      console.error('Error al refrescar:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  /**
    * Maneja el reenvío del email de verificación
    */
   const handleResendVerification = async () => {
@@ -291,6 +309,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.blue]}
+              tintColor={Colors.blue}
+            />
+          }
         >
           <View style={styles.content}>
             {/* Header de Bienvenida */}

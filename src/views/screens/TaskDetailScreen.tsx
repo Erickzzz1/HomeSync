@@ -69,7 +69,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description);
+  const [description, setDescription] = useState(task.description || '');
   const [assignedTo, setAssignedTo] = useState(task.assignedTo);
   const [assignedToName, setAssignedToName] = useState<string>('');
   const [dueDate, setDueDate] = useState(task.dueDate);
@@ -404,7 +404,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
    */
   const handleCancel = () => {
     setTitle(task.title);
-    setDescription(task.description);
+    setDescription(task.description || '');
     setAssignedTo(task.assignedTo);
     const currentAssignedName = getAssignedUserName(task.assignedTo);
     setAssignedToName(currentAssignedName);
@@ -443,12 +443,13 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       // Si se eligió usar el servidor, actualizar los campos locales
       if (resolution === 'useServer') {
         setTitle(result.task.title);
-        setDescription(result.task.description);
+        setDescription(result.task.description || '');
         setAssignedTo(result.task.assignedTo);
         setDueDate(result.task.dueDate);
         setSelectedDate(result.task.dueDate ? new Date(result.task.dueDate) : null);
         setPriority(result.task.priority);
         setCategories(result.task.categories || []);
+        setDescription(result.task.description || '');
       }
       
       // Sincronizar recordatorios
@@ -473,6 +474,17 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setShowConflictModal(false);
     setConflictInfo(null);
     setIsEditing(false);
+  };
+
+  /**
+   * Obtiene la fecha de hoy a medianoche (sin hora)
+   */
+  const getTodayAtMidnight = (): Date => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const day = today.getDate();
+    return new Date(year, month, day, 0, 0, 0, 0);
   };
 
   /**
@@ -545,7 +557,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Estado */}
         <View style={styles.statusBadge}>
           <LinearGradient
-            colors={task.isCompleted ? [Colors.green, Colors.greenDark] : [Colors.blue, Colors.blueDark]}
+            colors={task.isCompleted ? [Colors.green, Colors.greenDark] : [Colors.orange, Colors.orangeDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.statusBadgeGradient}
@@ -594,7 +606,7 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Descripción */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Descripción</Text>
+          <Text style={styles.sectionLabel}>Descripción (Opcional)</Text>
           {isEditing ? (
             <>
               <TextInput
@@ -614,14 +626,14 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 multiline
                 numberOfLines={4}
                 editable={!isSaving}
-                placeholder="Ingresa la descripción de la tarea"
+                placeholder="Ingresa la descripción de la tarea (opcional)"
               />
               {validationErrors.description && (
                 <Text style={styles.errorText}>{validationErrors.description}</Text>
               )}
             </>
           ) : (
-            <Text style={styles.sectionValue}>{task.description}</Text>
+            <Text style={styles.sectionValue}>{task.description || 'Sin descripción'}</Text>
           )}
         </View>
 
@@ -783,8 +795,10 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                           setValidationErrors({ ...validationErrors, dueDate: undefined });
                         }
                       }}
-                      minimumDate={new Date()}
+                      minimumDate={getTodayAtMidnight()}
                       locale="es-ES"
+                      themeVariant="light"
+                      accentColor={Colors.blue}
                     />
                   )}
                 </>

@@ -86,6 +86,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'offline'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
   
   // Filtros avanzados
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
@@ -231,30 +232,55 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     setIsSyncing(true);
     setSyncStatus('syncing');
     
-    unsubscribeTasksRef.current = subscribeToTasks(
-      user.uid,
-      (tasks: TaskModel[]) => {
-        // Las tareas ya vienen ordenadas del servicio
-        configureLayoutAnimation();
-        dispatch(setTasks(tasks));
-        resetPagination(tasks);
-        
-        // Sincronizar recordatorios cuando cambian las tareas
-        syncReminders(tasks, previousTasksRef.current.map(t => t.id));
-        previousTasksRef.current = tasks;
-        
-        // Actualizar estado de sincronización
-        setIsSyncing(false);
-        setSyncStatus('synced');
-        setLastSyncTime(new Date());
-      },
-      (error) => {
-        // Error en la sincronización
-        setIsSyncing(false);
-        setSyncStatus('error');
-        console.error('Error en sincronización:', error);
-      }
-    );
+    try {
+      unsubscribeTasksRef.current = subscribeToTasks(
+        user.uid,
+        (tasks: TaskModel[]) => {
+          try {
+            // Las tareas ya vienen ordenadas del servicio
+            configureLayoutAnimation();
+            dispatch(setTasks(tasks));
+            resetPagination(tasks);
+            
+            // Sincronizar recordatorios cuando cambian las tareas (con manejo de errores)
+            try {
+              syncReminders(tasks, previousTasksRef.current.map(t => t.id));
+            } catch (reminderError) {
+              console.warn('Error al sincronizar recordatorios:', reminderError);
+              // Continuar aunque falle la sincronización de recordatorios
+            }
+            
+            previousTasksRef.current = tasks;
+            
+            // Actualizar estado de sincronización
+            setIsSyncing(false);
+            setSyncStatus('synced');
+            setLastSyncTime(new Date());
+            setHasInitialLoad(true);
+          } catch (error) {
+            console.error('Error al procesar tareas:', error);
+            setIsSyncing(false);
+            setSyncStatus('error');
+          }
+        },
+        (error: Error) => {
+          console.error('Error en listener de tareas:', error);
+          setIsSyncing(false);
+          setSyncStatus('error');
+          // Mostrar lista vacía en caso de error
+          dispatch(setTasks([]));
+          setDisplayedTasks([]);
+          setHasInitialLoad(true);
+        }
+      );
+    } catch (error) {
+      console.error('Error al configurar listener de tareas:', error);
+      setIsSyncing(false);
+      setSyncStatus('error');
+      dispatch(setTasks([]));
+      setDisplayedTasks([]);
+      setHasInitialLoad(true);
+    }
   }, [user?.uid, isOnline, dispatch]);
 
   /**
@@ -853,10 +879,10 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
-        style={styles.gradientBackground}
-      >
+        <LinearGradient
+          colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+          style={styles.gradientBackground}
+        >
         {/* Banner de conexión offline y estado de sincronización */}
         <View style={styles.statusBanner}>
         {!isOnline ? (
@@ -921,7 +947,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         >
           {filter === 'pending' ? (
             <LinearGradient
-              colors={[Colors.blue, Colors.blueDark]}
+              colors={[Colors.orange, Colors.orangeDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.filterButtonGradient}
@@ -954,55 +980,6 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
       </View>
-
-      {/* Filtro de Categorías - Mostrar siempre que haya categorías guardadas o en tareas */}
-      {(availableCategories.length > 0 || selectedCategory) && (
-        <View style={styles.categoryFilterContainer}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryFilterScroll}
-          >
-            <TouchableOpacity
-              style={[
-                styles.categoryFilterButton,
-                !selectedCategory && styles.categoryFilterButtonActive
-              ]}
-              onPress={() => changeCategoryFilter(null)}
-            >
-              <Text
-                style={[
-                  styles.categoryFilterText,
-                  !selectedCategory && styles.categoryFilterTextActive
-                ]}
-              >
-                Todas
-              </Text>
-            </TouchableOpacity>
-            {availableCategories.map((category) => (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryFilterButton,
-                  selectedCategory === category && styles.categoryFilterButtonActive
-                ]}
-                onPress={() => changeCategoryFilter(
-                  selectedCategory === category ? null : category
-                )}
-              >
-                <Text
-                  style={[
-                    styles.categoryFilterText,
-                    selectedCategory === category && styles.categoryFilterTextActive
-                  ]}
-                >
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
       {/* Selector de Agrupación */}
       <View style={styles.groupByContainer}>
@@ -1077,8 +1054,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
             end={{ x: 1, y: 0 }}
             style={styles.calendarButtonGradient}
           >
-            <Ionicons name="calendar" size={16} color={Colors.white} style={{ marginRight: Spacing.xs }} />
-            <Text style={styles.calendarButtonText}>Calendario</Text>
+            <Ionicons name="calendar" size={20} color={Colors.white} />
           </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity
@@ -1088,11 +1064,28 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           ]}
           onPress={() => setShowAdvancedFilter(true)}
         >
-          <Ionicons name="search" size={16} color={hasActiveAdvancedFilters() ? Colors.blue : Colors.textSecondary} style={{ marginRight: Spacing.xs }} />
-          <Text style={styles.advancedFilterButtonText}>
-            Filtros Avanzados
-            {hasActiveAdvancedFilters() && ' •'}
-          </Text>
+          <View style={styles.advancedFilterButtonContent}>
+            <Ionicons 
+              name="search" 
+              size={14} 
+              color={hasActiveAdvancedFilters() ? Colors.blue : Colors.textSecondary} 
+              style={{ marginRight: 6 }} 
+            />
+            <Text 
+              style={[
+                styles.advancedFilterButtonText, 
+                hasActiveAdvancedFilters() && styles.advancedFilterButtonTextActive
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.85}
+            >
+              Filtros Avanzados
+            </Text>
+            {hasActiveAdvancedFilters() && (
+              <View style={styles.activeFilterIndicator} />
+            )}
+          </View>
         </TouchableOpacity>
         {hasActiveAdvancedFilters() && (
           <TouchableOpacity
@@ -1111,8 +1104,27 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </View>
 
+      {/* Botón para crear tarea */}
+      <View style={styles.addTaskButtonContainer}>
+        <TouchableOpacity
+          style={styles.addTaskButton}
+          onPress={navigateToCreateTask}
+          disabled={!isOnline}
+        >
+          <LinearGradient
+            colors={[Colors.blue, Colors.blueDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.addTaskButtonGradient}
+          >
+            <Ionicons name="add" size={20} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+            <Text style={styles.addTaskButtonText}>Agregar Tarea</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
       {/* Lista de tareas */}
-      {isLoading && !refreshing && displayedTasks.length === 0 ? (
+      {(!hasInitialLoad && !refreshing && displayedTasks.length === 0) ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.blue} />
           <Text style={styles.loadingText}>Cargando tareas...</Text>
@@ -1161,22 +1173,6 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           removeClippedSubviews={Platform.OS === 'android'}
         />
       )}
-
-      {/* Botón flotante para crear tarea */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={navigateToCreateTask}
-        disabled={!isOnline}
-      >
-        <LinearGradient
-          colors={[Colors.orange, Colors.orangeDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
-        >
-          <Ionicons name="add" size={32} color={Colors.white} />
-        </LinearGradient>
-      </TouchableOpacity>
 
       {/* Modal de Filtro Avanzado */}
       <Modal
@@ -1290,6 +1286,56 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
                 </ScrollView>
               </View>
 
+              {/* Filtro por categoría */}
+              {(availableCategories.length > 0 || selectedCategory) && (
+                <View style={styles.filterField}>
+                  <Text style={styles.filterLabel}>Categoría</Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.categoryFilterScrollModal}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.categoryFilterButtonModal,
+                        !selectedCategory && styles.categoryFilterButtonActiveModal
+                      ]}
+                      onPress={() => changeCategoryFilter(null)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryFilterTextModal,
+                          !selectedCategory && styles.categoryFilterTextActiveModal
+                        ]}
+                      >
+                        Todas
+                      </Text>
+                    </TouchableOpacity>
+                    {availableCategories.map((category) => (
+                      <TouchableOpacity
+                        key={category}
+                        style={[
+                          styles.categoryFilterButtonModal,
+                          selectedCategory === category && styles.categoryFilterButtonActiveModal
+                        ]}
+                        onPress={() => changeCategoryFilter(
+                          selectedCategory === category ? null : category
+                        )}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryFilterTextModal,
+                            selectedCategory === category && styles.categoryFilterTextActiveModal
+                          ]}
+                        >
+                          {category}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
               {/* Filtro por rango de fechas */}
               <View style={styles.filterField}>
                 <Text style={styles.filterLabel}>Rango de fechas</Text>
@@ -1395,7 +1441,8 @@ const styles = StyleSheet.create({
     flex: 1
   },
   gradientBackground: {
-    flex: 1
+    flex: 1,
+    position: 'relative'
   },
   statusBanner: {
     paddingVertical: Spacing.sm,
@@ -1473,7 +1520,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.base,
-    backgroundColor: Colors.backgroundTertiary,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -1571,6 +1620,8 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
+    zIndex: 9999,
+    elevation: 10,
     ...Shadows.lg
   },
   fabGradient: {
@@ -1599,16 +1650,12 @@ const styles = StyleSheet.create({
   },
   calendarButtonGradient: {
     paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.sm + 2,
     alignItems: 'center',
-    flexDirection: 'row',
     justifyContent: 'center',
-    borderRadius: BorderRadius.base
-  },
-  calendarButtonText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.white,
-    fontWeight: Typography.weights.semibold
+    borderRadius: BorderRadius.base,
+    width: 48,
+    height: 48
   },
   groupByContainer: {
     backgroundColor: Colors.white,
@@ -1704,6 +1751,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.sm,
+    minWidth: 0,
     ...Shadows.sm
   },
   advancedFilterButtonActive: {
@@ -1711,13 +1763,32 @@ const styles = StyleSheet.create({
     borderColor: Colors.blue,
     borderWidth: 2
   },
+  advancedFilterButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+    flexShrink: 1,
+    width: '100%'
+  },
   advancedFilterButtonText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
     fontWeight: Typography.weights.medium,
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.base,
-    textAlign: 'center'
+    textAlign: 'center',
+    flexShrink: 1
+  },
+  advancedFilterButtonTextActive: {
+    color: Colors.blue,
+    fontWeight: Typography.weights.semibold
+  },
+  activeFilterIndicator: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: Colors.blue,
+    marginLeft: 5,
+    flexShrink: 0
   },
   clearFiltersButton: {
     borderRadius: BorderRadius.base,
@@ -1860,6 +1931,31 @@ const styles = StyleSheet.create({
     color: Colors.blue,
     fontWeight: '600'
   },
+  categoryFilterScrollModal: {
+    flexDirection: 'row'
+  },
+  categoryFilterButtonModal: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginRight: 8
+  },
+  categoryFilterButtonActiveModal: {
+    backgroundColor: Colors.blue + '15',
+    borderColor: Colors.blue
+  },
+  categoryFilterTextModal: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500'
+  },
+  categoryFilterTextActiveModal: {
+    color: Colors.blue,
+    fontWeight: '600'
+  },
   dateRangeContainer: {
     flexDirection: 'row',
     gap: 12
@@ -1908,6 +2004,28 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     color: Colors.white,
     fontWeight: Typography.weights.bold
+  },
+  addTaskButtonContainer: {
+    paddingHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.white
+  },
+  addTaskButton: {
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.sm
+  },
+  addTaskButtonGradient: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  addTaskButtonText: {
+    fontSize: Typography.sizes.base,
+    color: Colors.white,
+    fontWeight: Typography.weights.semibold
   }
 });
 

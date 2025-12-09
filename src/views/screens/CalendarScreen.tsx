@@ -13,7 +13,8 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Platform
+  Platform,
+  RefreshControl
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAppSelector } from '../../store/hooks';
@@ -38,6 +39,7 @@ const CalendarScreen: React.FC<Props> = ({ navigation }) => {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [tasksForSelectedDate, setTasksForSelectedDate] = useState<TaskModel[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const unsubscribeTasksRef = React.useRef<Unsubscribe | null>(null);
 
   /**
@@ -68,6 +70,27 @@ const CalendarScreen: React.FC<Props> = ({ navigation }) => {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  /**
+   * Maneja el pull-to-refresh
+   */
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Las tareas se recargan automáticamente por el listener de Firestore
+      // Solo necesitamos actualizar la vista
+      if (selectedDate) {
+        const tasksForDate = getTasksForDate(selectedDate);
+        setTasksForSelectedDate(tasksForDate);
+      }
+      // Pequeño delay para feedback visual
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Error al refrescar:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [selectedDate, tasks]);
 
   /**
    * Obtiene todas las fechas del mes actual
@@ -441,7 +464,17 @@ const CalendarScreen: React.FC<Props> = ({ navigation }) => {
       {renderHeader()}
 
       {/* Calendario */}
-      <ScrollView style={styles.calendarContainer}>
+      <ScrollView 
+        style={styles.calendarContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.blue]}
+            tintColor={Colors.blue}
+          />
+        }
+      >
         {viewMode === 'month' ? renderMonthView() : renderWeekView()}
 
         {/* Tareas del día seleccionado */}

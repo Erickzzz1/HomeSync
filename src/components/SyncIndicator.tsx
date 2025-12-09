@@ -41,12 +41,17 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
     } else if (hours < 24) {
       return `Hace ${hours} ${hours === 1 ? 'hora' : 'horas'}`;
     } else {
-      return lastSyncTime.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
+      // Formatear fecha sin usar 'short' para evitar puntos
+      const day = lastSyncTime.getDate();
+      const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+      const month = monthNames[lastSyncTime.getMonth()];
+      const dateStr = `${day} de ${month}`;
+      
+      const timeStr = lastSyncTime.toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit'
       });
+      return `${dateStr} ${timeStr}`;
     }
   };
 
@@ -111,7 +116,9 @@ const SyncIndicator: React.FC<SyncIndicatorProps> = ({
       {status === 'syncing' ? (
         <ActivityIndicator size="small" color="#FFFFFF" style={styles.icon} />
       ) : (
-        <View style={styles.icon}>{getStatusIcon()}</View>
+        <View style={styles.icon}>
+          {getStatusIcon()}
+        </View>
       )}
       <Text style={styles.text}>{getStatusText()}</Text>
       {lastSyncTime && status === 'synced' && (

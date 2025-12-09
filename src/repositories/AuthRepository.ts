@@ -97,24 +97,35 @@ class AuthRepository implements IAuthRepository {
     try {
       const token = await ApiService.getToken();
       if (token) {
-        const response = await ApiService.get<ApiAuthResponse>('/api/auth/me');
-        if (response.success && response.user) {
-          const user = this.apiUserToFirebaseUser(response.user);
-          this.notifyAuthStateChange(user);
-          this.isCheckingAuth = false;
-          return;
+        try {
+          const response = await ApiService.get<ApiAuthResponse>('/api/auth/me');
+          if (response && response.success && response.user) {
+            const user = this.apiUserToFirebaseUser(response.user);
+            this.notifyAuthStateChange(user);
+            this.isCheckingAuth = false;
+            return;
+          }
+        } catch (apiError: any) {
+          // Silenciar errores 401 (no autenticado) - es un estado esperado
+          if (apiError?.status !== 401 && apiError?.errorCode !== 'UNAUTHORIZED') {
+            // Solo loguear errores inesperados
+            console.error('Error al verificar estado de autenticación:', apiError);
+          }
+          // Si hay error, notificar que no hay usuario
+          this.notifyAuthStateChange(null);
         }
+      } else {
+        // No hay token, notificar que no hay usuario
+        this.notifyAuthStateChange(null);
       }
     } catch (error: any) {
-      // Silenciar errores 401 (no autenticado) - es un estado esperado
-      if (error?.status !== 401 && error?.errorCode !== 'UNAUTHORIZED') {
-        // Solo loguear errores inesperados
-        console.error('Error al verificar estado de autenticación:', error);
-      }
+      // Error al obtener token o cualquier otro error
+      console.error('Error al verificar estado de autenticación:', error);
+      // Notificar que no hay usuario para evitar estados inconsistentes
+      this.notifyAuthStateChange(null);
     } finally {
       this.isCheckingAuth = false;
     }
-    this.notifyAuthStateChange(null);
   }
 
   /**
