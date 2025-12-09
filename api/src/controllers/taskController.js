@@ -395,23 +395,23 @@ export const updateTask = async (req, res) => {
 
     const taskData = docSnapshot.data();
     
-    // Verificar permisos para editar
-    const permissionCheck = await checkTaskPermission(userId, taskData, 'edit');
-    if (!permissionCheck.allowed) {
-      return res.status(403).json({
-        success: false,
-        error: permissionCheck.reason || 'No tienes permisos para actualizar esta tarea',
-        errorCode: 'PERMISSION_DENIED'
-      });
-    }
-    
-    // Si solo está cambiando isCompleted, verificar permisos de completar
+    // Si solo está cambiando isCompleted, verificar permisos de completar (no de editar)
     if (updateData.isCompleted !== undefined && Object.keys(updateData).length === 1) {
       const completePermission = await checkTaskPermission(userId, taskData, 'complete');
       if (!completePermission.allowed) {
         return res.status(403).json({
           success: false,
           error: completePermission.reason || 'No tienes permisos para completar esta tarea',
+          errorCode: 'PERMISSION_DENIED'
+        });
+      }
+    } else {
+      // Para cualquier otra actualización, verificar permisos para editar
+      const permissionCheck = await checkTaskPermission(userId, taskData, 'edit');
+      if (!permissionCheck.allowed) {
+        return res.status(403).json({
+          success: false,
+          error: permissionCheck.reason || 'No tienes permisos para actualizar esta tarea',
           errorCode: 'PERMISSION_DENIED'
         });
       }
@@ -657,6 +657,7 @@ export const toggleTaskCompletion = async (req, res) => {
   try {
     const { taskId } = req.params;
     const { isCompleted } = req.body;
+    const userId = req.user.uid;
 
     if (typeof isCompleted !== 'boolean') {
       return res.status(400).json({
@@ -666,9 +667,87 @@ export const toggleTaskCompletion = async (req, res) => {
       });
     }
 
-    // Usar updateTask
-    req.body = { isCompleted };
-    return await updateTask(req, res);
+    // Verificar que la tarea existe
+    const taskDoc = doc(firestore, COLLECTION_NAME, taskId);
+    const docSnapshot = await getDoc(taskDoc);
+    
+    if (!docSnapshot.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'La tarea no existe',
+        errorCode: 'NOT_FOUND'
+      });
+    }
+
+    const taskData = docSnapshot.data();
+    
+    // Verificar permisos para completar (no para editar)
+    const completePermission = await checkTaskPermission(userId, taskData, 'complete');
+    if (!completePermission.allowed) {
+      return res.status(403).json({
+        success: false,
+        error: completePermission.reason || 'No tienes permisos para completar esta tarea',
+        errorCode: 'PERMISSION_DENIED'
+      });
+    }
+
+    // Actualizar solo isCompleted
+    const currentVersion = taskData.version || 1;
+    await updateDoc(taskDoc, {
+      isCompleted,
+      updatedAt: serverTimestamp(),
+      version: currentVersion + 1,
+      lastModifiedBy: userId
+    });
+
+    // Obtener tarea actualizada
+    const updatedDoc = await getDoc(taskDoc);
+    const data = updatedDoc.data();
+    const task = {
+      id: updatedDoc.id,
+      ...data,
+      categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
+        ? data.categories 
+        : undefined,
+      version: data.version || 1,
+      lastModifiedBy: data.lastModifiedBy || data.createdBy,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+    };
+
+    // Enviar notificación si se completó la tarea
+    try {
+      if (isCompleted === true && taskData.isCompleted === false) {
+        // Notificar al creador si no es quien completó
+        if (data.createdBy !== userId) {
+          const completerDocRef = doc(firestore, 'users', userId);
+          const completerDoc = await getDoc(completerDocRef);
+          const completerName = completerDoc.exists() 
+            ? (completerDoc.data().displayName || completerDoc.data().email || 'Un usuario')
+            : 'Un usuario';
+          
+          await sendNotificationToUser(
+            data.createdBy,
+            'Tarea completada',
+            `${completerName} completó la tarea: "${data.title}".`,
+            {
+              type: 'task_completed',
+              taskId: taskId,
+              completedBy: userId,
+              title: data.title
+            }
+          );
+        }
+      }
+    } catch (notificationError) {
+      // No fallar la actualización si falla la notificación
+      console.error('Error al enviar notificación:', notificationError);
+    }
+
+    res.json({
+      success: true,
+      task
+    });
   } catch (error) {
     console.error('Error al cambiar estado de tarea:', error);
     res.status(500).json({

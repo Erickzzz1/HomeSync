@@ -403,20 +403,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity
-                    style={[styles.resendButton, isSendingVerification && styles.resendButtonDisabled]}
-                    onPress={handleResendVerification}
-                    disabled={isSendingVerification}
-                  >
-                    {isSendingVerification ? (
-                      <ActivityIndicator size="small" color={Colors.white} />
-                    ) : (
-                      <>
-                        <Ionicons name="refresh" size={16} color={Colors.white} style={{ marginRight: 4 }} />
-                        <Text style={styles.resendButtonText}>Reenviar</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  <View style={styles.resendButtonContainer}>
+                    <TouchableOpacity
+                      style={[styles.resendButton, isSendingVerification && styles.resendButtonDisabled]}
+                      onPress={handleResendVerification}
+                      disabled={isSendingVerification}
+                    >
+                      {isSendingVerification ? (
+                        <ActivityIndicator size="small" color={Colors.white} />
+                      ) : (
+                        <>
+                          <Ionicons name="refresh" size={16} color={Colors.white} style={{ marginRight: 4 }} />
+                          <Text style={styles.resendButtonText}>Reenviar</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
               
@@ -637,6 +639,10 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
     lineHeight: Typography.lineHeights.relaxed * Typography.sizes.xs
+  },
+  resendButtonContainer: {
+    width: '100%',
+    marginTop: Spacing.xs
   },
   resendButton: {
     flexDirection: 'row',

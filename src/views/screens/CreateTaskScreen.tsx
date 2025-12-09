@@ -494,7 +494,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation, route }) => {
       }, true, 2000);
     } else {
       // Mostrar error detallado al usuario
-      const errorMessage = result.error || 'No se pudo crear la tarea. Verifica tu conexión a internet y que el servidor esté corriendo.';
+      const errorMessage = result.error || 'No se pudo crear la tarea. Verifica tu conexión a internet e intenta nuevamente.';
       console.error('[CreateTaskScreen] Error al crear tarea:', errorMessage);
       showError(errorMessage);
     }

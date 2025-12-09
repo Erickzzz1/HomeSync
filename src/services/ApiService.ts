@@ -193,7 +193,7 @@ class ApiService {
       if (error?.message?.includes('Network request failed') || error?.message?.includes('Failed to fetch')) {
         console.error(`[ApiService] Error de red. URL intentada: ${url}`);
         console.error(`[ApiService] Base URL configurada: ${this.baseUrl}`);
-        const networkError = new Error(`Error de conexión. Verifica que el servidor esté corriendo en ${this.baseUrl}`);
+        const networkError = new Error('Error de conexión. Verifica tu conexión a internet e intenta nuevamente.');
         (networkError as any).isNetworkError = true;
         throw networkError;
       }

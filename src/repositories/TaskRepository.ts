@@ -142,7 +142,7 @@ class TaskRepository implements ITaskRepository {
       }
       
       // Error de red u otro error
-      const errorMessage = error.message || 'Ocurrió un error al crear la tarea. Verifica tu conexión a internet y que el servidor esté corriendo.';
+      const errorMessage = error.message || 'Ocurrió un error al crear la tarea. Verifica tu conexión a internet e intenta nuevamente.';
       console.error('[TaskRepository] Error de red:', errorMessage);
       return {
         success: false,
