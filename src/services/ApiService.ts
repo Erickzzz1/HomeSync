@@ -22,6 +22,17 @@ class ApiService {
   constructor() {
     // Usar la URL de la API desde variables de entorno o localhost por defecto
     this.baseUrl = API_BASE_URL || 'http://localhost:3000';
+    
+    // Advertencia si estamos en producción y usando localhost
+    if (__DEV__) {
+      console.log('[ApiService] Base URL configurada:', this.baseUrl);
+    } else {
+      // En producción, verificar que no esté usando localhost
+      if (this.baseUrl.includes('localhost') || this.baseUrl.includes('127.0.0.1')) {
+        console.error('[ApiService] ADVERTENCIA: La URL de la API está configurada como localhost. Esto no funcionará en dispositivos móviles reales.');
+        console.error('[ApiService] Configura API_BASE_URL con la IP de tu servidor o una URL pública.');
+      }
+    }
   }
 
   /**
@@ -30,18 +41,26 @@ class ApiService {
    */
   async getToken(): Promise<string | null> {
     try {
+      let token: string | null = null;
       if (isWeb) {
         // En web, usar localStorage
         if (typeof window !== 'undefined' && window.localStorage) {
-          return window.localStorage.getItem(TOKEN_KEY);
+          token = window.localStorage.getItem(TOKEN_KEY);
         }
-        return null;
       } else {
         // En móvil, usar SecureStore
-        return await SecureStore.getItemAsync(TOKEN_KEY);
+        token = await SecureStore.getItemAsync(TOKEN_KEY);
       }
+      
+      if (token) {
+        console.log('[ApiService] Token encontrado:', token.substring(0, 20) + '...');
+      } else {
+        console.warn('[ApiService] No se encontró token de autenticación');
+      }
+      
+      return token;
     } catch (error) {
-      // console.error('Error al obtener token:', error);
+      console.error('[ApiService] Error al obtener token:', error);
       return null;
     }
   }
@@ -95,9 +114,9 @@ class ApiService {
   ): Promise<T> {
     const token = await this.getToken();
     
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     };
 
     if (token) {
@@ -106,13 +125,37 @@ class ApiService {
 
     const url = `${this.baseUrl}${endpoint}`;
     
+    console.log(`[ApiService] ${options.method || 'GET'} ${url}`);
+    console.log(`[ApiService] Headers:`, headers);
+    
     try {
       const response = await fetch(url, {
         ...options,
         headers,
       });
 
-      const data = await response.json();
+      console.log(`[ApiService] Response status: ${response.status}`);
+      
+      // Verificar si la respuesta tiene contenido
+      const contentType = response.headers.get('content-type');
+      let data: any;
+      
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const text = await response.text();
+          console.log(`[ApiService] Response text:`, text);
+          data = JSON.parse(text);
+        } catch (parseError) {
+          console.error(`[ApiService] Error al parsear JSON:`, parseError);
+          throw new Error(`Error al procesar la respuesta del servidor: ${parseError}`);
+        }
+      } else {
+        const text = await response.text();
+        console.log(`[ApiService] Response text (no JSON):`, text);
+        data = { error: text || 'Respuesta inesperada del servidor' };
+      }
+      
+      console.log(`[ApiService] Response data:`, data);
 
       // Si la respuesta no es exitosa, retornar los datos para que el repositorio maneje el error
       // Esto permite manejar códigos de estado específicos como 409 (conflicto)
@@ -138,8 +181,23 @@ class ApiService {
       }
 
       return data;
-    } catch (error) {
-      // console.error(`Error en petición ${endpoint}:`, error);
+    } catch (error: any) {
+      console.error(`[ApiService] Error en petición ${endpoint}:`, error);
+      console.error(`[ApiService] Error details:`, {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      });
+      
+      // Si es un error de red, agregar más información
+      if (error?.message?.includes('Network request failed') || error?.message?.includes('Failed to fetch')) {
+        console.error(`[ApiService] Error de red. URL intentada: ${url}`);
+        console.error(`[ApiService] Base URL configurada: ${this.baseUrl}`);
+        const networkError = new Error(`Error de conexión. Verifica que el servidor esté corriendo en ${this.baseUrl}`);
+        (networkError as any).isNetworkError = true;
+        throw networkError;
+      }
+      
       throw error;
     }
   }

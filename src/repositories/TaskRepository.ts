@@ -28,6 +28,7 @@ interface ApiTaskResponse {
   task?: TaskModel;
   tasks?: TaskModel[];
   error?: string;
+  message?: string;
   errorCode?: string;
   conflict?: {
     currentVersion: number;
@@ -50,12 +51,20 @@ class TaskRepository implements ITaskRepository {
       // Validación de entrada
       const validationError = this.validateCreateTaskData(taskData);
       if (validationError) {
+        console.error('[TaskRepository] Error de validación:', validationError);
         return {
           success: false,
           error: validationError,
           errorCode: 'VALIDATION_ERROR'
         };
       }
+
+      console.log('[TaskRepository] Creando tarea con datos:', {
+        title: taskData.title,
+        assignedTo: taskData.assignedTo,
+        dueDate: taskData.dueDate,
+        priority: taskData.priority
+      });
 
       // Enviar petición a la API
       const response = await ApiService.post<ApiTaskResponse>('/api/tasks', {
@@ -70,8 +79,31 @@ class TaskRepository implements ITaskRepository {
           : []
       });
 
+      console.log('[TaskRepository] Respuesta de la API:', JSON.stringify(response, null, 2));
+
+      // Validar que la respuesta sea un objeto
+      if (!response || typeof response !== 'object') {
+        console.error('[TaskRepository] Respuesta inválida de la API:', response);
+        return {
+          success: false,
+          error: 'Respuesta inválida del servidor',
+          errorCode: 'INVALID_RESPONSE'
+        };
+      }
+
       // Verificar si la respuesta tiene éxito
-      if (response && response.success && response.task) {
+      if (response.success === true && response.task) {
+        // Validar que la tarea tenga un ID
+        if (!response.task.id) {
+          console.error('[TaskRepository] Tarea creada sin ID:', response.task);
+          return {
+            success: false,
+            error: 'La tarea fue creada pero no tiene un ID válido',
+            errorCode: 'INVALID_TASK_ID'
+          };
+        }
+        
+        console.log('[TaskRepository] Tarea creada exitosamente:', response.task.id);
         return {
           success: true,
           task: response.task
@@ -79,29 +111,42 @@ class TaskRepository implements ITaskRepository {
       }
 
       // Si no tiene éxito, retornar error
+      const errorMessage = response.error || response.message || 'Error al crear la tarea';
+      console.error('[TaskRepository] Error en respuesta de API:', errorMessage);
+      console.error('[TaskRepository] Respuesta completa:', JSON.stringify(response, null, 2));
       return {
         success: false,
-        error: response?.error || response?.message || 'Error al crear la tarea',
-        errorCode: response?.errorCode || 'CREATE_TASK_ERROR'
+        error: errorMessage,
+        errorCode: response.errorCode || 'CREATE_TASK_ERROR'
       };
     } catch (error: any) {
-      console.error('Error al crear tarea:', error);
+      console.error('[TaskRepository] Excepción al crear tarea:', error);
+      console.error('[TaskRepository] Detalles del error:', {
+        message: error?.message,
+        stack: error?.stack,
+        response: error?.response,
+        status: error?.status
+      });
       
       // Manejar diferentes tipos de errores
       if (error?.response) {
         // Error de la API con respuesta
+        const errorMessage = error.response.error || error.response.message || 'Error al crear la tarea';
+        console.error('[TaskRepository] Error de API:', errorMessage);
         return {
           success: false,
-          error: error.response.error || error.response.message || 'Error al crear la tarea',
+          error: errorMessage,
           errorCode: error.response.errorCode || error.errorCode || 'CREATE_TASK_ERROR'
         };
       }
       
       // Error de red u otro error
+      const errorMessage = error.message || 'Ocurrió un error al crear la tarea. Verifica tu conexión a internet y que el servidor esté corriendo.';
+      console.error('[TaskRepository] Error de red:', errorMessage);
       return {
         success: false,
-        error: error.message || 'Ocurrió un error al crear la tarea. Verifica tu conexión a internet.',
-        errorCode: error.errorCode || 'CREATE_TASK_ERROR'
+        error: errorMessage,
+        errorCode: error.errorCode || 'NETWORK_ERROR'
       };
     }
   }

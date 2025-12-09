@@ -12,7 +12,7 @@
  */
 
 import ApiService from '../services/ApiService';
-import { syncFirebaseAuth, signOutFirebase, getFirebaseAuth, firestore } from '../services/FirebaseService';
+import { syncFirebaseAuth, signOutFirebase, getFirebaseAuth, checkFirebaseAuthState, firestore } from '../services/FirebaseService';
 import { sendEmailVerification, reload } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import {
@@ -101,6 +101,20 @@ class AuthRepository implements IAuthRepository {
           const response = await ApiService.get<ApiAuthResponse>('/api/auth/me');
           if (response && response.success && response.user) {
             const user = this.apiUserToFirebaseUser(response.user);
+            
+            // Verificar si Firebase Auth tiene un usuario autenticado
+            // Firebase Auth mantiene la sesión automáticamente, pero puede tardar un momento
+            console.log('[AuthRepository] Verificando estado de Firebase Auth...');
+            const hasFirebaseAuth = await checkFirebaseAuthState();
+            
+            if (!hasFirebaseAuth) {
+              console.warn('[AuthRepository] Usuario autenticado en API pero no en Firebase Auth.');
+              console.warn('[AuthRepository] Las tareas pueden no cargarse hasta que el usuario haga login nuevamente.');
+              console.warn('[AuthRepository] SOLUCIÓN: El usuario debe cerrar sesión y volver a iniciar sesión para sincronizar Firebase Auth.');
+            } else {
+              console.log('[AuthRepository] Firebase Auth tiene usuario autenticado, las tareas deberían cargarse correctamente.');
+            }
+            
             this.notifyAuthStateChange(user);
             this.isCheckingAuth = false;
             return;

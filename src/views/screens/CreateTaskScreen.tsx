@@ -409,11 +409,25 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
       categories: Array.isArray(categories) ? categories.filter(cat => cat && cat.trim()).map(cat => cat.trim()) : []
     };
 
-    const result = await taskRepository.createTask(taskData);
+    let result;
+    try {
+      console.log('[CreateTaskScreen] Iniciando creación de tarea...');
+      result = await taskRepository.createTask(taskData);
+      console.log('[CreateTaskScreen] Resultado de createTask:', result);
+    } catch (error: any) {
+      console.error('[CreateTaskScreen] Excepción al crear tarea:', error);
+      console.error('[CreateTaskScreen] Stack trace:', error?.stack);
+      dispatch(setLoading(false));
+      showError(error?.message || 'Ocurrió un error inesperado al crear la tarea');
+      return;
+    }
 
     dispatch(setLoading(false));
 
-    if (result.success && result.task) {
+    // Validación estricta: SOLO agregar a Redux si TODO está correcto
+    if (result && result.success === true && result.task && result.task.id) {
+      console.log('[CreateTaskScreen] Tarea creada exitosamente, agregando a Redux:', result.task.id);
+      // SOLO agregar a Redux si la tarea se creó exitosamente en el servidor
       dispatch(addTask(result.task));
       
       // Guardar las categorías usadas para reutilización futura
@@ -431,7 +445,10 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
         navigation.goBack();
       }, true, 2000);
     } else {
-      showError(result.error || 'No se pudo crear la tarea');
+      // Mostrar error detallado al usuario
+      const errorMessage = result.error || 'No se pudo crear la tarea. Verifica tu conexión a internet y que el servidor esté corriendo.';
+      console.error('[CreateTaskScreen] Error al crear tarea:', errorMessage);
+      showError(errorMessage);
     }
   };
 

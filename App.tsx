@@ -18,6 +18,7 @@ import AuthRepository from './src/repositories/AuthRepository';
 import { Colors } from './src/constants/design';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { subscribeToTasks } from './src/services/TaskFirestoreService';
+import { checkFirebaseAuthState } from './src/services/FirebaseService';
 import { Unsubscribe } from 'firebase/firestore';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -30,8 +31,9 @@ export default function App() {
 
   /**
    * Configura el listener de tareas en tiempo real
+   * Espera a que Firebase Auth restaure la sesión si es necesario
    */
-  const setupTasksListener = useCallback((userId: string) => {
+  const setupTasksListener = useCallback(async (userId: string) => {
     // Limpiar listener anterior si existe
     if (unsubscribeTasksRef.current) {
       unsubscribeTasksRef.current();
@@ -39,20 +41,36 @@ export default function App() {
     }
 
     try {
+      console.log('[App] Configurando listener de tareas para:', userId);
+      
+      // Verificar si Firebase Auth tiene una sesión persistente
+      // Firebase Auth debería mantener la sesión automáticamente, pero puede tardar
+      console.log('[App] Verificando sesión de Firebase Auth...');
+      const hasFirebaseAuth = await checkFirebaseAuthState();
+      
+      if (!hasFirebaseAuth) {
+        console.warn('[App] Firebase Auth no tiene sesión. Las tareas pueden no cargarse.');
+        console.warn('[App] El usuario debería hacer login nuevamente para sincronizar Firebase Auth.');
+        // Aún así intentar configurar el listener, puede que funcione con reglas públicas
+      } else {
+        console.log('[App] Firebase Auth tiene sesión, configurando listener de tareas...');
+      }
+
       unsubscribeTasksRef.current = subscribeToTasks(
         userId,
         (tasks) => {
+          console.log('[App] Tareas recibidas:', tasks.length);
           // Actualizar tareas en Redux
           store.dispatch(setTasks(tasks));
         },
         (error) => {
-          console.error('Error en listener de tareas:', error);
+          console.error('[App] Error en listener de tareas:', error);
           // En caso de error, mantener las tareas actuales o limpiar
           store.dispatch(setTasks([]));
         }
       );
     } catch (error) {
-      console.error('Error al configurar listener de tareas:', error);
+      console.error('[App] Error al configurar listener de tareas:', error);
     }
   }, []);
 
@@ -65,23 +83,27 @@ export default function App() {
       const authRepository = new AuthRepository();
       unsubscribe = authRepository.onAuthStateChanged((user) => {
         try {
+          console.log('[App] Cambio en estado de autenticación. Usuario:', user?.uid || 'null');
           store.dispatch(setUser(user));
           
           // Limpiar listener de tareas anterior si existe
           if (unsubscribeTasksRef.current) {
+            console.log('[App] Limpiando listener de tareas anterior');
             unsubscribeTasksRef.current();
             unsubscribeTasksRef.current = null;
           }
           
           if (user) {
+            console.log('[App] Usuario autenticado, configurando listener de tareas para:', user.uid);
             // Configurar listener de tareas cuando el usuario se autentica
             setupTasksListener(user.uid);
           } else {
+            console.log('[App] Usuario no autenticado, limpiando tareas');
             // Limpiar tareas cuando el usuario se desautentica
             store.dispatch(clearTasks());
           }
         } catch (error) {
-          console.error('Error al actualizar estado de autenticación:', error);
+          console.error('[App] Error al actualizar estado de autenticación:', error);
         }
       });
     } catch (error) {

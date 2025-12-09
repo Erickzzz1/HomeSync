@@ -9,7 +9,10 @@ module.exports = function(api) {
         blacklist: null,
         whitelist: null,
         safe: false,
-        allowUndefined: true
+        allowUndefined: true,
+        // Asegurar que las variables se incluyan en el build
+        envName: 'APP_ENV',
+        verbose: false
       }]
     ]
   };

@@ -15,7 +15,13 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app"
+        "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app",
+        "FIREBASE_API_KEY": "AIzaSyBVAz_D27MpDAiBuicanlF0-ihxxtsq7ws",
+        "FIREBASE_AUTH_DOMAIN": "home-sync-erick.firebaseapp.com",
+        "FIREBASE_PROJECT_ID": "home-sync-erick",
+        "FIREBASE_STORAGE_BUCKET": "home-sync-erick.firebasestorage.app",
+        "FIREBASE_MESSAGING_SENDER_ID": "1041817272860",
+        "FIREBASE_APP_ID": "1:1041817272860:web:3eb73c9df23d38ed15d5d9"
       },
       "node": "20.11.0"
     },
@@ -25,7 +31,13 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app"
+        "API_BASE_URL": "https://homesync-api-21799384558.us-central1.run.app",
+        "FIREBASE_API_KEY": "AIzaSyBVAz_D27MpDAiBuicanlF0-ihxxtsq7ws",
+        "FIREBASE_AUTH_DOMAIN": "home-sync-erick.firebaseapp.com",
+        "FIREBASE_PROJECT_ID": "home-sync-erick",
+        "FIREBASE_STORAGE_BUCKET": "home-sync-erick.firebasestorage.app",
+        "FIREBASE_MESSAGING_SENDER_ID": "1041817272860",
+        "FIREBASE_APP_ID": "1:1041817272860:web:3eb73c9df23d38ed15d5d9"
       },
       "node": "20.11.0"
     }
