@@ -62,15 +62,25 @@ type TaskListScreenNavigationProp = StackNavigationProp<any, 'TaskList'>;
 
 interface Props {
   navigation: TaskListScreenNavigationProp;
+  route?: {
+    params?: {
+      groupId?: string;
+      groupName?: string;
+    };
+  };
 }
 
 const PAGE_SIZE = 20; // Tamaño de página para infinite scroll
 
-const TaskListScreen: React.FC<Props> = ({ navigation }) => {
+const TaskListScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAppSelector((state) => state.auth);
   const { tasks, isLoading } = useAppSelector((state) => state.tasks);
   const dispatch = useAppDispatch();
   const { alertState, showSuccess, showError, showConfirm, hideAlert } = useCustomAlert();
+  
+  // Parámetros de navegación para filtrar por grupo
+  const groupId = route?.params?.groupId;
+  const groupName = route?.params?.groupName;
   
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
@@ -419,8 +429,30 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   /**
    * Filtra las tareas según todos los filtros aplicados
    */
+  /**
+   * Filtra las tareas según los filtros aplicados, incluyendo el filtro por grupo
+   */
   const getFilteredTasksFromList = (tasksList: TaskModel[]): TaskModel[] => {
+    // Primero filtrar por grupo si se especificó un groupId
     let filtered = tasksList;
+    
+    if (groupId) {
+      console.log('[TaskListScreen] Filtrando por groupId:', groupId);
+      console.log('[TaskListScreen] Total de tareas antes de filtrar:', tasksList.length);
+      // Filtrar tareas que tengan el mismo groupId
+      // Si una tarea no tiene groupId, no se muestra cuando se filtra por grupo
+      filtered = filtered.filter(task => {
+        const matches = task.groupId === groupId;
+        if (!matches && task.groupId) {
+          console.log('[TaskListScreen] Tarea excluida - groupId diferente:', task.id, 'task.groupId:', task.groupId, 'filtro:', groupId);
+        }
+        if (!matches && !task.groupId) {
+          console.log('[TaskListScreen] Tarea excluida - sin groupId:', task.id);
+        }
+        return matches;
+      });
+      console.log('[TaskListScreen] Total de tareas después de filtrar por grupo:', filtered.length);
+    }
 
     // Aplicar filtro de estado (pendiente/completada)
     switch (filter) {
@@ -592,7 +624,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     const filtered = getFilteredTasksFromList(tasks);
     resetPagination(filtered);
-  }, [tasks, filter, selectedCategory, searchText, selectedPriorities, selectedAssignedTo, dateFrom, dateTo, groupBy]);
+  }, [tasks, filter, selectedCategory, searchText, selectedPriorities, selectedAssignedTo, dateFrom, dateTo, groupBy, groupId]);
 
   /**
    * Refresca la lista de tareas
@@ -618,7 +650,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
    * Navega a la pantalla de crear tarea
    */
   const navigateToCreateTask = () => {
-    navigation.navigate('CreateTask');
+    navigation.navigate('CreateTask', groupId ? { groupId } : undefined);
   };
 
   /**
@@ -871,20 +903,24 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
+  // Calcular estadísticas basadas en las tareas filtradas por grupo
+  const filteredTasksForStats = groupId 
+    ? tasks.filter(task => task.groupId === groupId)
+    : tasks;
+  
   const stats = {
-    total: tasks.length,
-    pending: tasks.filter(t => !t.isCompleted).length,
-    completed: tasks.filter(t => t.isCompleted).length
+    total: filteredTasksForStats.length,
+    pending: filteredTasksForStats.filter(t => !t.isCompleted).length,
+    completed: filteredTasksForStats.filter(t => t.isCompleted).length
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-        <LinearGradient
-          colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
-          style={styles.gradientBackground}
-        >
-        {/* Banner de conexión offline y estado de sincronización */}
-        <View style={styles.statusBanner}>
+  /**
+   * Renderiza el header completo de la lista (incluido en el scroll)
+   */
+  const renderListHeader = () => (
+    <>
+      {/* Banner de conexión offline y estado de sincronización */}
+      <View style={styles.statusBanner}>
         {!isOnline ? (
           <View style={styles.offlineBanner}>
             <Ionicons name="warning" size={16} color={Colors.white} style={{ marginRight: 6 }} />
@@ -919,6 +955,25 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.statLabel}>Completadas</Text>
         </View>
       </View>
+
+      {/* Header del Grupo (si se está filtrando por grupo) */}
+      {groupId && groupName && (
+        <View style={styles.groupHeaderContainer}>
+          <View style={styles.groupHeaderContent}>
+            <Ionicons name="people" size={20} color={Colors.blue} style={{ marginRight: Spacing.sm }} />
+            <View style={styles.groupHeaderTextContainer}>
+              <Text style={styles.groupHeaderLabel}>Grupo:</Text>
+              <Text style={styles.groupHeaderName}>{groupName}</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.groupHeaderCloseButton}
+            onPress={() => navigation.navigate('TaskList')}
+          >
+            <Ionicons name="close" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Filtros */}
       <View style={styles.filterContainer}>
@@ -1122,8 +1177,16 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+    </>
+  );
 
-      {/* Lista de tareas */}
+  return (
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F5F8FF', '#E8F0FF']}
+        style={styles.gradientBackground}
+      >
+        {/* Lista de tareas */}
       {(!hasInitialLoad && !refreshing && displayedTasks.length === 0) ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.blue} />
@@ -1137,6 +1200,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
             return item.id || `task-${index}`;
           }}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
           refreshControl={
@@ -1161,6 +1225,7 @@ const TaskListScreen: React.FC<Props> = ({ navigation }) => {
             return item.id || `task-${index}`;
           }}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderEmptyState}
           refreshControl={
             <RefreshControl 
@@ -2026,6 +2091,38 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     color: Colors.white,
     fontWeight: Typography.weights.semibold
+  },
+  groupHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Math.max(Spacing.lg, SCREEN_WIDTH * 0.05),
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.blue + '10',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.blue + '30'
+  },
+  groupHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1
+  },
+  groupHeaderTextContainer: {
+    flex: 1
+  },
+  groupHeaderLabel: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs / 2
+  },
+  groupHeaderName: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold,
+    color: Colors.blue
+  },
+  groupHeaderCloseButton: {
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.full
   }
 });
 

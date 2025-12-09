@@ -206,6 +206,10 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   /**
    * Carga los miembros de la familia y grupos para el selector
    */
+  /**
+   * Carga la lista de familiares para asignar la tarea
+   * Si la tarea tiene un groupId, solo carga los miembros de ese grupo
+   */
   const loadFamilyMembers = async () => {
     if (!user?.uid) return;
     
@@ -213,52 +217,94 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const members: Array<{ uid: string; name: string }> = [];
     
     try {
-      // Agregar el usuario actual (si no está ya asignado a otro usuario)
-      members.push({
-        uid: user.uid,
-        name: user.displayName || user.email || 'Yo mismo'
-      });
-      
-      // Cargar familiares
-      const familyRepository = new FamilyRepository();
-      const familyResult = await familyRepository.getFamilyMembers();
-      if (familyResult.success && familyResult.familyMembers) {
-        familyResult.familyMembers.forEach((member) => {
+      // Si la tarea tiene un groupId, solo cargar miembros de ese grupo
+      if (task.groupId) {
+        console.log('[TaskDetailScreen] Cargando miembros del grupo de la tarea:', task.groupId);
+        const groupResult = await familyGroupRepository.getFamilyGroup(task.groupId);
+        
+        if (groupResult.success && groupResult.group) {
+          // Agregar el usuario actual
           members.push({
-            uid: member.uid,
-            name: member.displayName || member.email || 'Sin nombre'
+            uid: user.uid,
+            name: user.displayName || user.email || 'Yo mismo'
           });
+          
+          // Agregar miembros del grupo
+          groupResult.group.members.forEach((member) => {
+            if (member.uid !== user?.uid) {
+              members.push({
+                uid: member.uid,
+                name: member.displayName || member.email || 'Sin nombre'
+              });
+            }
+          });
+          
+          console.log('[TaskDetailScreen] Miembros del grupo cargados:', members.length);
+        } else {
+          console.error('[TaskDetailScreen] No se pudo cargar el grupo:', task.groupId);
+          // Fallback: agregar solo el usuario actual
+          members.push({
+            uid: user.uid,
+            name: user.displayName || user.email || 'Yo mismo'
+          });
+        }
+      } else {
+        // Si no hay groupId, cargar todos los miembros como antes
+        console.log('[TaskDetailScreen] Cargando todos los miembros (tarea sin grupo)');
+        
+        // Agregar el usuario actual
+        members.push({
+          uid: user.uid,
+          name: user.displayName || user.email || 'Yo mismo'
         });
-      }
-      
-      // Cargar miembros de grupos familiares
-      const groupsResult = await familyGroupRepository.getMyFamilyGroups();
-      if (groupsResult.success && groupsResult.groups) {
-        const groupPromises = groupsResult.groups.map(async (group) => {
-          const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
-          if (groupDetailResult.success && groupDetailResult.group) {
-            return groupDetailResult.group.members.map(member => ({
+        
+        // Cargar familiares
+        const familyRepository = new FamilyRepository();
+        const familyResult = await familyRepository.getFamilyMembers();
+        if (familyResult.success && familyResult.familyMembers) {
+          familyResult.familyMembers.forEach((member) => {
+            members.push({
               uid: member.uid,
               name: member.displayName || member.email || 'Sin nombre'
-            }));
-          }
-          return [];
-        });
+            });
+          });
+        }
         
-        const allGroupMembersArrays = await Promise.all(groupPromises);
-        const allGroupMembers = allGroupMembersArrays.flat();
-        
-        // Agregar miembros de grupos que no estén ya en la lista
-        allGroupMembers.forEach((member) => {
-          if (member.uid && !members.find(m => m.uid === member.uid)) {
-            members.push(member);
-          }
-        });
+        // Cargar miembros de grupos familiares
+        const groupsResult = await familyGroupRepository.getMyFamilyGroups();
+        if (groupsResult.success && groupsResult.groups) {
+          const groupPromises = groupsResult.groups.map(async (group) => {
+            const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
+            if (groupDetailResult.success && groupDetailResult.group) {
+              return groupDetailResult.group.members.map(member => ({
+                uid: member.uid,
+                name: member.displayName || member.email || 'Sin nombre'
+              }));
+            }
+            return [];
+          });
+          
+          const allGroupMembersArrays = await Promise.all(groupPromises);
+          const allGroupMembers = allGroupMembersArrays.flat();
+          
+          // Agregar miembros de grupos que no estén ya en la lista
+          allGroupMembers.forEach((member) => {
+            if (member.uid && !members.find(m => m.uid === member.uid)) {
+              members.push(member);
+            }
+          });
+        }
       }
       
       setFamilyMembers(members);
     } catch (error) {
       console.error('Error al cargar miembros para selector:', error);
+      // En caso de error, al menos agregar el usuario actual
+      members.push({
+        uid: user.uid,
+        name: user.displayName || user.email || 'Yo mismo'
+      });
+      setFamilyMembers(members);
     } finally {
       setIsLoadingFamily(false);
     }
@@ -478,23 +524,56 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   /**
    * Obtiene la fecha de hoy a medianoche (sin hora)
+   * Usa la fecha local del dispositivo para evitar problemas de zona horaria
    */
   const getTodayAtMidnight = (): Date => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const day = today.getDate();
+    const now = new Date();
+    // Usar métodos locales para evitar problemas de zona horaria
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+    // Crear fecha en hora local (no UTC)
+    const today = new Date(year, month, day, 0, 0, 0, 0);
+    return today;
+  };
+
+  /**
+   * Normaliza una fecha a medianoche para comparación
+   * Parsea el string de fecha (formato YYYY-MM-DD) y crea una fecha local
+   */
+  const normalizeDateToMidnight = (dateString: string): Date => {
+    // Si el string está en formato YYYY-MM-DD, parsearlo directamente
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Los meses en JS son 0-indexed
+      const day = parseInt(parts[2], 10);
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    // Si no está en formato YYYY-MM-DD, intentar parsearlo como Date
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
     return new Date(year, month, day, 0, 0, 0, 0);
   };
 
   /**
    * Formatea la fecha para mostrar en el input
+   * Devuelve un string en formato YYYY-MM-DD normalizado a medianoche
    */
   const formatDateForDisplay = (date: Date | null): string => {
     if (!date) return '';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    // Normalizar la fecha a medianoche local antes de formatear
+    const normalizedDate = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0, 0, 0, 0
+    );
+    const year = normalizedDate.getFullYear();
+    const month = String(normalizedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(normalizedDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
 
@@ -508,8 +587,15 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     if (event.type === 'set' && date) {
-      setSelectedDate(date);
-      const formattedDate = formatDateForDisplay(date);
+      // Normalizar la fecha seleccionada a medianoche local
+      const normalizedDate = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0, 0, 0, 0
+      );
+      setSelectedDate(normalizedDate);
+      const formattedDate = formatDateForDisplay(normalizedDate);
       setDueDate(formattedDate);
     } else if (event.type === 'dismissed') {
       // Usuario canceló la selección
@@ -741,9 +827,15 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     value={dueDate}
                     onChange={(e: any) => {
                       const dateValue = e.target.value;
-                      setDueDate(dateValue);
                       if (dateValue) {
-                        setSelectedDate(new Date(dateValue));
+                        // Normalizar la fecha a medianoche local antes de guardarla
+                        const normalizedDate = normalizeDateToMidnight(dateValue);
+                        setSelectedDate(normalizedDate);
+                        const formattedDate = formatDateForDisplay(normalizedDate);
+                        setDueDate(formattedDate);
+                      } else {
+                        setDueDate('');
+                        setSelectedDate(null);
                       }
                       // Limpiar error cuando el usuario seleccione una fecha
                       if (validationErrors.dueDate) {
@@ -811,12 +903,16 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.sectionValueContainer}>
               <Ionicons name="calendar" size={16} color={Colors.blue} style={{ marginRight: 8 }} />
               <Text style={styles.sectionValue}>
-                {new Date(task.dueDate).toLocaleDateString('es-ES', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
+                {(() => {
+                  // Normalizar la fecha antes de mostrarla para evitar problemas de zona horaria
+                  const normalizedDate = normalizeDateToMidnight(task.dueDate);
+                  return normalizedDate.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  });
+                })()}
               </Text>
             </View>
           )}
@@ -985,20 +1081,23 @@ const TaskDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => setIsEditing(true)}
-          >
-            <LinearGradient
-              colors={[Colors.blue, Colors.blueDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.editButtonGradient}
+          // Solo mostrar el botón de editar si el usuario es el creador de la tarea
+          user?.uid === task.createdBy && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => setIsEditing(true)}
             >
-              <Ionicons name="create" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.editButtonText}>Editar Tarea</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={[Colors.blue, Colors.blueDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.editButtonGradient}
+              >
+                <Ionicons name="create" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.editButtonText}>Editar Tarea</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )
         )}
         </ScrollView>
       </LinearGradient>

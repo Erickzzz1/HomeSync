@@ -76,7 +76,8 @@ class TaskRepository implements ITaskRepository {
         reminderTime: taskData.reminderTime || undefined,
         categories: taskData.categories && Array.isArray(taskData.categories) 
           ? taskData.categories.filter(cat => cat && cat.trim()).map(cat => cat.trim())
-          : []
+          : [],
+        groupId: taskData.groupId || undefined
       });
 
       console.log('[TaskRepository] Respuesta de la API:', JSON.stringify(response, null, 2));

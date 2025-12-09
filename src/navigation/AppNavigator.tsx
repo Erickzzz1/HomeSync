@@ -43,8 +43,8 @@ export type AuthStackParamList = {
 
 export type AppStackParamList = {
   Home: undefined;
-  TaskList: undefined;
-  CreateTask: undefined;
+  TaskList: { groupId?: string; groupName?: string } | undefined;
+  CreateTask: { groupId?: string } | undefined;
   TaskDetail: { task: TaskModel };
   Family: undefined;
   FamilyGroups: undefined;

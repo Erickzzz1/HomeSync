@@ -87,6 +87,12 @@ export interface TaskModel {
    * Array de strings que permiten organizar y filtrar tareas
    */
   categories?: string[];
+
+  /**
+   * ID del grupo familiar al que pertenece la tarea (opcional)
+   * Si está definido, la tarea solo se mostrará en ese grupo
+   */
+  groupId?: string;
 }
 
 /**
@@ -102,6 +108,7 @@ export interface CreateTaskData {
   createdBy: string;
   reminderTime?: string;
   categories?: string[];
+  groupId?: string;
 }
 
 /**

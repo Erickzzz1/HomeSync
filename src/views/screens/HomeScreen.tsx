@@ -33,6 +33,8 @@ import { AppStackParamList } from '../../navigation/AppNavigator';
 import CustomAlert from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { initializeNotifications, setupNotificationListeners } from '../../services/NotificationService';
+import FamilyGroupRepository from '../../repositories/FamilyGroupRepository';
+import { FamilyGroupSummary } from '../../repositories/interfaces/IFamilyGroupRepository';
 
 type HomeScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Home'>;
 
@@ -48,7 +50,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [hideVerifiedBadge, setHideVerifiedBadge] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [familyGroups, setFamilyGroups] = useState<FamilyGroupSummary[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const authViewModel = new AuthViewModel();
+  const familyGroupRepository = new FamilyGroupRepository();
 
   // Resetear el estado del badge cuando el usuario se verifica
   useEffect(() => {
@@ -167,6 +172,49 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       };
     }
   }, [user?.uid, user?.emailVerified, navigation, dispatch]);
+
+  /**
+   * Carga los grupos familiares del usuario
+   */
+  useEffect(() => {
+    if (user?.uid) {
+      loadFamilyGroups();
+    }
+  }, [user?.uid]);
+
+  /**
+   * Recarga los grupos cuando la pantalla recibe foco
+   */
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (user?.uid) {
+        loadFamilyGroups();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, user?.uid]);
+
+  /**
+   * Carga la lista de grupos familiares
+   */
+  const loadFamilyGroups = async () => {
+    setIsLoadingGroups(true);
+    try {
+      const result = await familyGroupRepository.getMyFamilyGroups();
+      if (result.success && result.groups) {
+        setFamilyGroups(result.groups);
+      } else {
+        console.error('Error al cargar grupos:', result.error);
+        setFamilyGroups([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar grupos:', error);
+      setFamilyGroups([]);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
 
   /**
    * Extrae solo el primer nombre del nombre completo
@@ -386,31 +434,61 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
-            {/* Sección de Tareas Próximas a Vencer */}
-            {upcomingTasks.length > 0 && (
-              <View style={styles.upcomingTasksContainer}>
-                <View style={styles.upcomingTasksHeader}>
-                  <Ionicons name="time-outline" size={20} color={Colors.blue} />
-                  <Text style={styles.upcomingTasksTitle}>Tareas próximas a vencer</Text>
+            {/* Sección de Grupos Familiares */}
+            <View style={styles.groupsContainer}>
+              <View style={styles.groupsHeader}>
+                <Ionicons name="people-outline" size={20} color={Colors.blue} />
+                <Text style={styles.groupsTitle}>Mis Grupos</Text>
+              </View>
+              
+              {isLoadingGroups ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={Colors.blue} />
+                  <Text style={styles.loadingText}>Cargando grupos...</Text>
                 </View>
-                {upcomingTasks.map((task) => (
+              ) : familyGroups.length === 0 ? (
+                <View style={styles.emptyGroupsContainer}>
+                  <Ionicons name="people-outline" size={48} color={Colors.textTertiary} />
+                  <Text style={styles.emptyGroupsText}>No tienes grupos familiares</Text>
+                  <Text style={styles.emptyGroupsSubtext}>
+                    Crea o únete a un grupo para comenzar a organizar tareas
+                  </Text>
                   <TouchableOpacity
-                    key={task.id}
-                    style={styles.upcomingTaskCard}
-                    onPress={() => navigation.navigate('TaskDetail', { task })}
+                    style={styles.createGroupButton}
+                    onPress={() => navigation.navigate('FamilyGroups')}
+                  >
+                    <LinearGradient
+                      colors={[Colors.blue, Colors.blueDark]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.createGroupButtonGradient}
+                    >
+                      <Ionicons name="add" size={18} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                      <Text style={styles.createGroupButtonText}>Ir a Grupos</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                familyGroups.map((group) => (
+                  <TouchableOpacity
+                    key={group.id}
+                    style={styles.groupCard}
+                    onPress={() => navigation.navigate('TaskList', { groupId: group.id, groupName: group.name })}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.upcomingTaskContent}>
-                      <View style={styles.upcomingTaskLeft}>
-                        <View style={[styles.upcomingTaskPriority, { backgroundColor: getPriorityColor(task.priority) }]} />
-                        <View style={styles.upcomingTaskInfo}>
-                          <Text style={styles.upcomingTaskTitle} numberOfLines={1}>
-                            {task.title}
+                    <View style={styles.groupCardContent}>
+                      <View style={styles.groupCardLeft}>
+                        <View style={styles.groupIconContainer}>
+                          <Ionicons name="people" size={24} color={Colors.blue} />
+                        </View>
+                        <View style={styles.groupInfo}>
+                          <Text style={styles.groupName} numberOfLines={1}>
+                            {group.name}
                           </Text>
-                          <View style={styles.upcomingTaskMeta}>
-                            <Ionicons name="calendar-outline" size={12} color={Colors.textSecondary} />
-                            <Text style={styles.upcomingTaskDate}>
-                              {formatDueDate(task.dueDate)}
+                          <View style={styles.groupMeta}>
+                            <Ionicons name="person-outline" size={12} color={Colors.textSecondary} />
+                            <Text style={styles.groupMembersCount}>
+                              {group.membersCount} {group.membersCount === 1 ? 'miembro' : 'miembros'}
                             </Text>
                           </View>
                         </View>
@@ -418,25 +496,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                       <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
                     </View>
                   </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            {/* Botón de Ir a Tareas */}
-            <TouchableOpacity
-              style={styles.tasksButton}
-              onPress={() => navigation.navigate('TaskList')}
-            >
-              <LinearGradient
-                colors={[Colors.blue, Colors.blueDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buttonGradient}
-              >
-                <Ionicons name="list" size={20} color={Colors.white} style={styles.buttonIcon} />
-                <Text style={styles.tasksButtonText}>Ver tareas</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                ))
+              )}
+            </View>
 
             {/* Botón de Grupos Familiares */}
             <TouchableOpacity
@@ -450,7 +512,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.buttonGradient}
               >
                 <Ionicons name="people" size={20} color={Colors.white} style={styles.buttonIcon} />
-                <Text style={styles.familyButtonText}>Mis grupos</Text>
+                <Text style={styles.familyButtonText}>Administrar grupos</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -706,6 +768,114 @@ const styles = StyleSheet.create({
   },
   upcomingTaskDate: {
     fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary
+  },
+  groupsContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.lg,
+    ...Shadows.md
+  },
+  groupsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    gap: Spacing.sm
+  },
+  groupsTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary
+  },
+  loadingContainer: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  loadingText: {
+    marginTop: Spacing.sm,
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary
+  },
+  emptyGroupsContainer: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  emptyGroupsText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs
+  },
+  emptyGroupsSubtext: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg
+  },
+  createGroupButton: {
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    ...Shadows.base
+  },
+  createGroupButtonGradient: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.base
+  },
+  createGroupButtonText: {
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold
+  },
+  groupCard: {
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.base,
+    backgroundColor: Colors.backgroundTertiary,
+    overflow: 'hidden'
+  },
+  groupCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.base
+  },
+  groupCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: Spacing.sm
+  },
+  groupIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.blue + '15',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  groupInfo: {
+    flex: 1
+  },
+  groupName: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs
+  },
+  groupMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs
+  },
+  groupMembersCount: {
+    fontSize: Typography.sizes.xs,
     color: Colors.textSecondary
   }
 });

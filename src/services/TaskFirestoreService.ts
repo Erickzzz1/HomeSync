@@ -38,7 +38,8 @@ const convertFirestoreTask = (doc: any): TaskModel => {
     version: data.version || 1,
     lastModifiedBy: data.lastModifiedBy || data.createdBy || '',
     createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-    updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+    updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+    groupId: data.groupId || undefined
   };
 };
 
@@ -121,6 +122,11 @@ export const subscribeToTasks = (
             // Solo agregar si no existe (evitar duplicados)
             if (!tasksMap.has(doc.id)) {
               const task = convertFirestoreTask(doc);
+              console.log(`[TaskFirestoreService] Tarea convertida ${doc.id}:`, {
+                id: task.id,
+                title: task.title,
+                groupId: task.groupId || 'SIN groupId'
+              });
               tasksMap.set(doc.id, task);
             }
           } catch (error) {

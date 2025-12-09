@@ -52,11 +52,11 @@ async function checkTaskPermission(userId, taskData, action) {
         return { allowed: true };
         
       case 'edit':
-        // El creador o un admin pueden editar
-        if (taskData.createdBy === userId || isAdmin) {
+        // Solo el creador puede editar (no el asignado ni admins)
+        if (taskData.createdBy === userId) {
           return { allowed: true };
         }
-        return { allowed: false, reason: 'Solo el creador o un administrador pueden editar esta tarea' };
+        return { allowed: false, reason: 'Solo la persona que creó la tarea puede editarla' };
         
       case 'delete':
         // El creador o un admin pueden eliminar
@@ -86,7 +86,7 @@ async function checkTaskPermission(userId, taskData, action) {
  */
 export const createTask = async (req, res) => {
   try {
-    const { title, description, assignedTo, dueDate, priority, reminderTime, categories } = req.body;
+    const { title, description, assignedTo, dueDate, priority, reminderTime, categories, groupId } = req.body;
     const userId = req.user.uid;
 
     // Validación
@@ -116,6 +116,11 @@ export const createTask = async (req, res) => {
       updatedAt: serverTimestamp()
     };
 
+    // Agregar groupId solo si está definido y no está vacío
+    if (groupId && typeof groupId === 'string' && groupId.trim()) {
+      taskData.groupId = groupId.trim();
+    }
+
     // Crear en Firestore
     const tasksCollection = collection(firestore, COLLECTION_NAME);
     const docRef = await addDoc(tasksCollection, taskData);
@@ -123,17 +128,33 @@ export const createTask = async (req, res) => {
     // Obtener documento creado
     const docSnapshot = await getDoc(docRef);
     const data = docSnapshot.data();
+    
+    console.log('[taskController] Tarea creada en Firestore, datos:', {
+      id: docRef.id,
+      title: data.title,
+      groupId: data.groupId || 'NO TIENE groupId',
+      hasGroupId: !!data.groupId
+    });
+    
     const task = {
       id: docRef.id,
       ...data,
       categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 
         ? data.categories 
         : undefined,
+      groupId: data.groupId || undefined, // Incluir groupId si existe
       version: data.version || 1,
       lastModifiedBy: data.lastModifiedBy || data.createdBy,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
     };
+    
+    console.log('[taskController] Tarea a devolver al cliente:', {
+      id: task.id,
+      title: task.title,
+      groupId: task.groupId || 'NO TIENE groupId',
+      hasGroupId: !!task.groupId
+    });
 
     // Enviar notificación si la tarea está asignada a otro usuario
     if (assignedTo.trim() !== userId) {
@@ -168,11 +189,14 @@ export const createTask = async (req, res) => {
       task
     });
   } catch (error) {
-    // console.error('Error al crear tarea:', error);
+    console.error('Error al crear tarea:', error);
+    console.error('Stack trace:', error.stack);
+    console.error('Error completo:', JSON.stringify(error, null, 2));
     res.status(500).json({
       success: false,
       error: 'Error al crear la tarea',
-      errorCode: 'CREATE_TASK_ERROR'
+      errorCode: 'CREATE_TASK_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

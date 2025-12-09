@@ -138,6 +138,7 @@ service cloud.firestore {
       
       // CREAR: Solo si está autenticado y el createdBy es el usuario actual
       // Descripción es opcional (puede ser string vacío o null)
+      // groupId es opcional (puede ser string, null, o no existir)
       allow create: if isAuthenticated() && 
                        isOwner(request.resource.data.createdBy) &&
                        request.resource.data.title is string &&
@@ -148,7 +149,10 @@ service cloud.firestore {
                        request.resource.data.assignedTo is string &&
                        request.resource.data.dueDate is string &&
                        request.resource.data.priority in ['Alta', 'Media', 'Baja'] &&
-                       request.resource.data.isCompleted is bool;
+                       request.resource.data.isCompleted is bool &&
+                       (!('groupId' in request.resource.data) || 
+                        request.resource.data.groupId is string || 
+                        request.resource.data.groupId == null);
       
       // ACTUALIZAR: Si está autenticado y es el creador O el asignado (para marcar como completada)
       allow update: if isAuthenticated() && 

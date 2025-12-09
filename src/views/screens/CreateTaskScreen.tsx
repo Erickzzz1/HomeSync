@@ -53,9 +53,14 @@ type CreateTaskScreenNavigationProp = StackNavigationProp<any, 'CreateTask'>;
 
 interface Props {
   navigation: CreateTaskScreenNavigationProp;
+  route?: {
+    params?: {
+      groupId?: string;
+    };
+  };
 }
 
-const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
+const CreateTaskScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAppSelector((state) => state.auth);
   const { isLoading } = useAppSelector((state) => state.tasks);
   const dispatch = useAppDispatch();
@@ -85,12 +90,13 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
   /**
    * Carga los familiares y categorías disponibles al montar
+   * También se recarga cuando cambia el groupId (si se navega desde otro grupo)
    */
   useEffect(() => {
     loadFamilyMembers();
     loadAvailableCategories();
     loadSavedCategories();
-  }, []);
+  }, [route?.params?.groupId]);
 
   /**
    * Carga las categorías guardadas localmente
@@ -112,60 +118,90 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
 
   /**
    * Carga la lista de familiares (tanto de la lista tradicional como de grupos familiares)
+   * Si hay un groupId, solo carga los miembros de ese grupo específico
    */
   const loadFamilyMembers = async () => {
     setIsLoadingFamily(true);
     try {
-      // Cargar miembros de la lista tradicional
-      const traditionalResult = await familyRepository.getFamilyMembers();
-      const traditionalMembers: FamilyMember[] = traditionalResult.success && traditionalResult.familyMembers 
-        ? traditionalResult.familyMembers 
-        : [];
+      const groupId = route?.params?.groupId;
+      
+      // Si hay un groupId, solo cargar miembros de ese grupo
+      if (groupId) {
+        console.log('[CreateTaskScreen] Cargando miembros del grupo:', groupId);
+        const groupResult = await familyGroupRepository.getFamilyGroup(groupId);
+        
+        if (groupResult.success && groupResult.group) {
+          const groupMembers: FamilyMember[] = groupResult.group.members.map(member => ({
+            uid: member.uid,
+            email: member.email,
+            displayName: member.displayName,
+            shareCode: member.shareCode,
+            role: member.role
+          }));
+          
+          // Filtrar el usuario actual
+          const filteredMembers = groupMembers.filter(member => member.uid !== user?.uid);
+          setFamilyMembers(filteredMembers);
+          console.log('[CreateTaskScreen] Miembros del grupo cargados:', filteredMembers.length);
+        } else {
+          console.error('[CreateTaskScreen] No se pudo cargar el grupo:', groupId);
+          setFamilyMembers([]);
+        }
+      } else {
+        // Si no hay groupId, cargar todos los miembros como antes
+        console.log('[CreateTaskScreen] Cargando todos los miembros (sin filtro de grupo)');
+        
+        // Cargar miembros de la lista tradicional
+        const traditionalResult = await familyRepository.getFamilyMembers();
+        const traditionalMembers: FamilyMember[] = traditionalResult.success && traditionalResult.familyMembers 
+          ? traditionalResult.familyMembers 
+          : [];
 
-      // Cargar miembros de todos los grupos familiares
-      const groupsResult = await familyGroupRepository.getMyFamilyGroups();
-      let groupMembers: FamilyMember[] = [];
+        // Cargar miembros de todos los grupos familiares
+        const groupsResult = await familyGroupRepository.getMyFamilyGroups();
+        let groupMembers: FamilyMember[] = [];
 
-      if (groupsResult.success && groupsResult.groups) {
-        // Obtener miembros de cada grupo
-        const groupPromises = groupsResult.groups.map(async (group) => {
-          const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
-          if (groupDetailResult.success && groupDetailResult.group) {
-            return groupDetailResult.group.members.map(member => ({
-              uid: member.uid,
-              email: member.email,
-              displayName: member.displayName,
-              shareCode: member.shareCode,
-              role: member.role
-            }));
+        if (groupsResult.success && groupsResult.groups) {
+          // Obtener miembros de cada grupo
+          const groupPromises = groupsResult.groups.map(async (group) => {
+            const groupDetailResult = await familyGroupRepository.getFamilyGroup(group.id);
+            if (groupDetailResult.success && groupDetailResult.group) {
+              return groupDetailResult.group.members.map(member => ({
+                uid: member.uid,
+                email: member.email,
+                displayName: member.displayName,
+                shareCode: member.shareCode,
+                role: member.role
+              }));
+            }
+            return [];
+          });
+
+          const allGroupMembersArrays = await Promise.all(groupPromises);
+          groupMembers = allGroupMembersArrays.flat();
+        }
+
+        // Combinar ambos listados, eliminando duplicados por UID
+        const allMembersMap = new Map<string, FamilyMember>();
+        
+        // Agregar miembros tradicionales
+        traditionalMembers.forEach(member => {
+          if (member.uid && member.uid !== user?.uid) {
+            allMembersMap.set(member.uid, member);
           }
-          return [];
         });
 
-        const allGroupMembersArrays = await Promise.all(groupPromises);
-        groupMembers = allGroupMembersArrays.flat();
+        // Agregar miembros de grupos (no sobrescribir si ya existe)
+        groupMembers.forEach(member => {
+          if (member.uid && member.uid !== user?.uid && !allMembersMap.has(member.uid)) {
+            allMembersMap.set(member.uid, member);
+          }
+        });
+
+        // Convertir a array
+        const uniqueMembers = Array.from(allMembersMap.values());
+        setFamilyMembers(uniqueMembers);
       }
-
-      // Combinar ambos listados, eliminando duplicados por UID
-      const allMembersMap = new Map<string, FamilyMember>();
-      
-      // Agregar miembros tradicionales
-      traditionalMembers.forEach(member => {
-        if (member.uid && member.uid !== user?.uid) {
-          allMembersMap.set(member.uid, member);
-        }
-      });
-
-      // Agregar miembros de grupos (no sobrescribir si ya existe)
-      groupMembers.forEach(member => {
-        if (member.uid && member.uid !== user?.uid && !allMembersMap.has(member.uid)) {
-          allMembersMap.set(member.uid, member);
-        }
-      });
-
-      // Convertir a array
-      const uniqueMembers = Array.from(allMembersMap.values());
-      setFamilyMembers(uniqueMembers);
     } catch (error) {
       console.error('Error al cargar familiares:', error);
       // En caso de error, intentar cargar solo la lista tradicional como fallback
@@ -176,6 +212,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
         }
       } catch (fallbackError) {
         console.error('Error al cargar familiares (fallback):', fallbackError);
+        setFamilyMembers([]);
       }
     } finally {
       setIsLoadingFamily(false);
@@ -397,7 +434,11 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     // Normalizar título (trim y espacios múltiples)
     const finalTitle = sanitizedTitle.trim().replace(/\s+/g, ' ');
     
-    // Preparar datos de la tarea incluyendo categorías
+    // Obtener groupId de los parámetros de navegación si existe
+    const groupId = route?.params?.groupId;
+    console.log('[CreateTaskScreen] groupId desde route.params:', groupId);
+
+    // Preparar datos de la tarea incluyendo categorías y groupId
     const taskData = {
       title: finalTitle,
       description: description.trim() || '',
@@ -406,8 +447,14 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
       priority,
       createdBy: user.uid,
       reminderTime: reminderTime || undefined,
-      categories: Array.isArray(categories) ? categories.filter(cat => cat && cat.trim()).map(cat => cat.trim()) : []
+      categories: Array.isArray(categories) ? categories.filter(cat => cat && cat.trim()).map(cat => cat.trim()) : [],
+      groupId: groupId || undefined
     };
+    
+    console.log('[CreateTaskScreen] Datos de tarea a crear (incluyendo groupId):', {
+      ...taskData,
+      description: taskData.description.substring(0, 50) + '...' // Truncar descripción para el log
+    });
 
     let result;
     try {
@@ -427,6 +474,7 @@ const CreateTaskScreen: React.FC<Props> = ({ navigation }) => {
     // Validación estricta: SOLO agregar a Redux si TODO está correcto
     if (result && result.success === true && result.task && result.task.id) {
       console.log('[CreateTaskScreen] Tarea creada exitosamente, agregando a Redux:', result.task.id);
+      console.log('[CreateTaskScreen] Tarea creada con groupId:', result.task.groupId || 'SIN groupId');
       // SOLO agregar a Redux si la tarea se creó exitosamente en el servidor
       dispatch(addTask(result.task));
       

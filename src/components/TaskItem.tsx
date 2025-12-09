@@ -50,16 +50,41 @@ const TaskItem: React.FC<TaskItemProps> = ({
   };
 
   /**
+   * Normaliza una fecha a medianoche para comparación
+   * Parsea el string de fecha (formato YYYY-MM-DD) y crea una fecha local
+   */
+  const normalizeDateToMidnight = (dateString: string): Date => {
+    // Si el string está en formato YYYY-MM-DD, parsearlo directamente
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Los meses en JS son 0-indexed
+      const day = parseInt(parts[2], 10);
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    // Fallback: usar el constructor Date normal y normalizar
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    return new Date(year, month, day, 0, 0, 0, 0);
+  };
+
+  /**
    * Formatea la fecha para mostrar
    */
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Normalizar ambas fechas a medianoche local para evitar problemas de zona horaria
+    const taskDate = normalizeDateToMidnight(dateString);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const taskDate = new Date(date);
-    taskDate.setHours(0, 0, 0, 0);
+    const todayNormalized = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0, 0, 0, 0
+    );
 
-    const diffTime = taskDate.getTime() - today.getTime();
+    const diffTime = taskDate.getTime() - todayNormalized.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
@@ -157,10 +182,34 @@ const TaskItem: React.FC<TaskItemProps> = ({
           </Text>
         </View>
         <View style={styles.dueDateContainer}>
-          <Ionicons name="calendar" size={14} color={new Date(task.dueDate) < new Date() && !task.isCompleted ? Colors.orange : Colors.blue} />
+          <Ionicons 
+            name="calendar" 
+            size={14} 
+            color={(() => {
+              const taskDate = normalizeDateToMidnight(task.dueDate);
+              const today = new Date();
+              const todayNormalized = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate(),
+                0, 0, 0, 0
+              );
+              return taskDate < todayNormalized && !task.isCompleted ? Colors.orange : Colors.blue;
+            })()} 
+          />
           <Text style={[
             styles.dueDateText,
-            new Date(task.dueDate) < new Date() && !task.isCompleted && styles.dueDateOverdue
+            (() => {
+              const taskDate = normalizeDateToMidnight(task.dueDate);
+              const today = new Date();
+              const todayNormalized = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate(),
+                0, 0, 0, 0
+              );
+              return taskDate < todayNormalized && !task.isCompleted;
+            })() && styles.dueDateOverdue
           ]}>
             {formatDate(task.dueDate)}
           </Text>
