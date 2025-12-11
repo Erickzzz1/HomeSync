@@ -177,6 +177,14 @@ class ApiService {
         // Agregar información adicional al error
         (error as any).response = data;
         (error as any).status = response.status;
+        // Incluir errorCode si está presente en la respuesta
+        if (data.errorCode) {
+          (error as any).errorCode = data.errorCode;
+          console.log(`[ApiService] Error code agregado al error: ${data.errorCode}`);
+        } else {
+          console.log(`[ApiService] No se encontró errorCode en la respuesta del servidor`);
+        }
+        console.log(`[ApiService] Datos completos de error:`, { errorMessage, errorCode: data.errorCode, status: response.status });
         throw error;
       }
 

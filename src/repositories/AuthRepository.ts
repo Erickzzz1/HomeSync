@@ -372,32 +372,70 @@ class AuthRepository implements IAuthRepository {
     } catch (error: any) {
       console.error('Error en inicio de sesión:', error);
       
-      // Detectar errores de red
-      if (error.message?.toLowerCase().includes('network') || 
-          error.message?.toLowerCase().includes('fetch') ||
-          error.message?.toLowerCase().includes('internet') ||
-          error.message?.toLowerCase().includes('failed to fetch') ||
-          error.message?.toLowerCase().includes('network request failed')) {
-        return {
-          success: false,
-          error: 'No hay conexión a internet',
-          errorCode: 'NETWORK_ERROR'
-        };
-      }
-
+      // Verificar si el error tiene una respuesta del servidor con errorCode
+      const errorResponse = error.response || {};
+      const errorCode = errorResponse.errorCode || error.errorCode;
+      
+      console.log('[AuthRepository] Error response:', errorResponse);
+      console.log('[AuthRepository] Error code:', errorCode);
+      console.log('[AuthRepository] Error message:', error.message);
+      
       // Errores de credenciales del catch (si vienen del servidor)
       const credentialErrors = [
         'auth/user-not-found',
         'auth/wrong-password',
         'auth/invalid-credential',
-        'auth/invalid-login-credentials'
+        'auth/invalid-login-credentials',
+        'INVALID_CREDENTIALS',
+        'WRONG_PASSWORD',
+        'USER_NOT_FOUND'
       ];
       
-      if (error.message && credentialErrors.some(code => error.message.includes(code))) {
+      // Verificar errorCode de la respuesta del servidor
+      if (errorCode && credentialErrors.includes(errorCode)) {
+        console.log('[AuthRepository] Detectado error de credenciales por errorCode');
         return {
           success: false,
           error: 'Correo o contraseña incorrectos',
           errorCode: 'INVALID_CREDENTIALS'
+        };
+      }
+      
+      // También verificar en el mensaje de error (por compatibilidad)
+      if (error.message && credentialErrors.some(code => error.message.includes(code))) {
+        console.log('[AuthRepository] Detectado error de credenciales por mensaje');
+        return {
+          success: false,
+          error: 'Correo o contraseña incorrectos',
+          errorCode: 'INVALID_CREDENTIALS'
+        };
+      }
+      
+      // Verificar mensajes de error en español que indican credenciales incorrectas
+      const errorMessageLower = error.message?.toLowerCase() || '';
+      if (errorMessageLower.includes('contraseña incorrecta') || 
+          errorMessageLower.includes('no existe una cuenta') ||
+          errorMessageLower.includes('credenciales incorrectas') ||
+          errorMessageLower.includes('correo o contraseña')) {
+        console.log('[AuthRepository] Detectado error de credenciales por mensaje en español');
+        return {
+          success: false,
+          error: 'Correo o contraseña incorrectos',
+          errorCode: 'INVALID_CREDENTIALS'
+        };
+      }
+      
+      // Detectar errores de red
+      if (error.message?.toLowerCase().includes('network') || 
+          error.message?.toLowerCase().includes('fetch') ||
+          error.message?.toLowerCase().includes('internet') ||
+          error.message?.toLowerCase().includes('failed to fetch') ||
+          error.message?.toLowerCase().includes('network request failed') ||
+          error.isNetworkError) {
+        return {
+          success: false,
+          error: 'No hay conexión a internet',
+          errorCode: 'NETWORK_ERROR'
         };
       }
 

@@ -12,7 +12,7 @@
  * - Diferenciación entre errores de red y servidor
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,7 +54,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   
   const dispatch = useAppDispatch();
   const { alertState, showSuccess, showError, hideAlert } = useCustomAlert();
-  const authViewModel = new AuthViewModel();
+  const authViewModel = useRef(new AuthViewModel()).current; // Usar useRef para evitar recrear en cada render
   const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
 
   /**
@@ -103,7 +103,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setIsLoading(true);
-    dispatch(setLoading(true));
+    // NO cambiar el estado global de loading para evitar que RootNavigator desmonte el componente
 
     try {
       const result = await authViewModel.signIn(email, password);
@@ -111,6 +111,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       if (result.success && result.user) {
         // Actualizar Redux store
         dispatch(setUser(result.user));
+        dispatch(setLoading(false));
         showSuccess(
           'Has iniciado sesión correctamente',
           '¡Bienvenid@!',
@@ -123,9 +124,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           2000
         );
       } else {
-        // Manejo de errores según HU-01
-        dispatch(setError(result.error || 'No se pudo completar la solicitud. Inténtalo más tarde'));
+        // Primero detener el loading local (NO cambiar el global para evitar desmontar)
+        setIsLoading(false);
         
+        // Manejo de errores según HU-01 - NO usar dispatch para evitar cambios de estado que desmonten
+        // dispatch(setError(result.error || 'No se pudo completar la solicitud. Inténtalo más tarde'));
+        
+        // Mostrar el error inmediatamente sin esperar interacciones
         // Según HU-01: Todos los errores de credenciales muestran mensaje genérico
         if (result.errorCode === 'INVALID_CREDENTIALS') {
           // Error de credenciales: mensaje genérico (nunca revelar si el email existe)
@@ -144,6 +149,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     } catch (error: any) {
       console.error('Error inesperado:', error);
       
+      // Detener el loading local (NO cambiar el global)
+      setIsLoading(false);
+      
+      // Mostrar el error inmediatamente
       // Detectar errores de red
       if (error.message?.toLowerCase().includes('network') || 
           error.message?.toLowerCase().includes('fetch') ||
@@ -152,11 +161,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         showError('No se pudo completar la solicitud. Inténtalo más tarde');
       }
-      
-      dispatch(setError('Error inesperado'));
-    } finally {
-      setIsLoading(false);
-      dispatch(setLoading(false));
     }
   };
 
